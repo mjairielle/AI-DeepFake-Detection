@@ -74,6 +74,36 @@ set HOST=0.0.0.0
 python main.py
 ```
 
+## Docker
+
+Requires Docker Desktop (or Docker Engine + Compose plugin). The image includes Python 3.12, FFmpeg, and Gunicorn. Learning data is stored in `./learning_data` on the host.
+
+```bash
+docker compose up --build
+```
+
+Open [http://127.0.0.1:5000](http://127.0.0.1:5000).
+
+```bash
+# background
+docker compose up --build -d
+
+# logs
+docker compose logs -f
+
+# stop
+docker compose down
+```
+
+Without Compose:
+
+```bash
+docker build -t ai-deepfake-detection .
+docker run --rm -p 5000:5000 -v "%cd%/learning_data:/app/learning_data" ai-deepfake-detection
+```
+
+The container binds `0.0.0.0:5000` with a single Gunicorn worker (SQLite learning state is not multi-process safe). Video analysis can take a while; the worker timeout is 180s.
+
 ## API
 
 | Method | Path | Description |
