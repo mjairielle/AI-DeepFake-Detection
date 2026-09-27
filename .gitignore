@@ -36,6 +36,3 @@ learning_data/*
 # Local scratch
 test_synth.jpg
 *.log
-
-# Vercel
-.vercel/

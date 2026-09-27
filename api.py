@@ -15,10 +15,7 @@ from security import (
 
 logger = logging.getLogger("deepfake_engine.api")
 
-if os.environ.get("VERCEL"):
-    UPLOAD_DIR = os.path.join("/tmp", "uploads")
-else:
-    UPLOAD_DIR = os.path.join(os.path.dirname(__file__), "uploads")
+UPLOAD_DIR = os.path.join(os.path.dirname(__file__), "uploads")
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 app = Flask(__name__, static_folder="static", static_url_path="/static")
