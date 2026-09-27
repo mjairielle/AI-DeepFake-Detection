@@ -1,0 +1,11 @@
+.venv/
+venv/
+.git/
+__pycache__/
+.pytest_cache/
+htmlcov/
+tests/
+learning_data/*.db
+learning_data/*.pkl
+uploads/
+*.log
