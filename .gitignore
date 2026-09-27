@@ -9,6 +9,7 @@ build/
 .venv/
 venv/
 .env
+.env.local
 .python-version
 .pytest_cache/
 .coverage
@@ -35,3 +36,6 @@ learning_data/*
 # Local scratch
 test_synth.jpg
 *.log
+
+# Vercel
+.vercel/

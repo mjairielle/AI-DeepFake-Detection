@@ -19,13 +19,25 @@ from typing import Dict, List, Optional, Tuple
 logger = logging.getLogger("security")
 
 # ---------------------------------------------------------------------------
-#  SECRET KEY — loaded from env or generated once per install
+#  SECRET KEY — loaded from env, or generated once per install
 # ---------------------------------------------------------------------------
-_KEY_PATH = os.path.join(os.path.dirname(__file__), "learning_data", ".hmac_key")
+# On Vercel the deployed filesystem is read-only, so the key file goes
+# into /tmp (ephemeral) or, better yet, is supplied via the HMAC_SECRET_KEY
+# environment variable so it persists across cold starts.
+
+if os.environ.get("VERCEL"):
+    _KEY_PATH = os.path.join("/tmp", "learning_data", ".hmac_key")
+else:
+    _KEY_PATH = os.path.join(os.path.dirname(__file__), "learning_data", ".hmac_key")
 
 
 def _get_hmac_key() -> bytes:
-    """Load or generate a persistent HMAC key."""
+    """Load HMAC key from env var, file, or generate a new one."""
+    # Prefer an explicit env var (hex-encoded, 64 hex chars = 32 bytes)
+    env_key = os.environ.get("HMAC_SECRET_KEY")
+    if env_key:
+        return bytes.fromhex(env_key)
+
     os.makedirs(os.path.dirname(_KEY_PATH), exist_ok=True)
     if os.path.exists(_KEY_PATH):
         with open(_KEY_PATH, "rb") as f:

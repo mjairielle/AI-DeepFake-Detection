@@ -8,4 +8,3 @@ librosa==0.10.2.post1
 scikit-learn==1.6.1
 SQLAlchemy==2.0.38
 gunicorn==23.0.0
-pytest==9.0.3
