@@ -1,5 +1,7 @@
 # AI Deepfake Detection
 
+**Live Demo:** [https://ai-deepfake-detection-production.up.railway.app](https://ai-deepfake-detection-production.up.railway.app)
+
 Local Flask app that scores images, video, and audio for likely AI manipulation. A small web UI (DeepScan AI) uploads a file, runs forensic heuristics, and can take human corrections so thresholds and a lightweight classifier adapt over time.
 
 This is a **research / demo tool**, not a certified forensic product. Verdicts are heuristic scores, not proof that media is real or fake.
