@@ -181,6 +181,8 @@ class DeepfakeDetector:
         max_module_score = max(adaptive_scores.values()) if adaptive_scores else 0.0
         if max_module_score > 0.85 and len(flags) >= 2:
             probability = max(probability, 0.70 * probability + 0.30 * max_module_score)
+        elif max_module_score > 0.40 and len(flags) >= 3:
+            probability = max(probability, 0.65 * probability + 0.35 * max_module_score)
 
         probability = max(0.0, min(1.0, probability))
 
@@ -189,7 +191,7 @@ class DeepfakeDetector:
             agreement = 1.0 - float(np.std(score_vals))
             # High certainty cases (strongly deepfake or definitively authentic) shouldn't be
             # unduly penalized by natural modality variance (e.g., untagged metadata = 0.0)
-            if probability > 0.75 or probability < 0.20:
+            if probability > 0.65 or probability < 0.20:
                 agreement = max(agreement, 0.70)
         else:
             agreement = 0.5
@@ -231,7 +233,7 @@ class DeepfakeDetector:
     def _infer_manipulation(self, flags):
         flag_set = set(flags)
         # Face Swap indicators
-        if "blending_boundary_detected" in flag_set or "face_bg_color_mismatch" in flag_set or "ela_manipulation_detected" in flag_set:
+        if "blending_boundary_detected" in flag_set or "face_bg_color_mismatch" in flag_set or "ela_manipulation_detected" in flag_set or "face_bg_noise_mismatch" in flag_set:
             return ManipulationType.FACE_SWAP.value
         # Lip sync indicators
         if "teeth_detail_anomaly" in flag_set or "lip_sync_mismatch" in flag_set:

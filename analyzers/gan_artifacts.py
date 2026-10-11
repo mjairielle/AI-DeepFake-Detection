@@ -55,7 +55,7 @@ class GANArtifactAnalyzer:
             flags.extend(nu_flags)
 
         # Edge sharpness
-        es_score, es_flags = self._edge_sharpness(gray, bgr)
+        es_score, es_flags = self._edge_sharpness(gray)
         scores.append(es_score)
         flags.extend(es_flags)
 
@@ -65,34 +65,51 @@ class GANArtifactAnalyzer:
             scores.append(dct_score)
             flags.extend(dct_flags)
 
-        return float(np.mean(scores)), flags
+        if not scores:
+            return 0.0, flags
+        # Use a blend of max signal and mean to avoid diluting a single strong
+        # deepfake indicator across many clean sub-checks.
+        top_scores = sorted(scores, reverse=True)
+        max_score = top_scores[0]
+        mean_score = float(np.mean(scores))
+        if max_score > 0.4:
+            combined = 0.5 * max_score + 0.5 * mean_score
+        else:
+            combined = 0.7 * mean_score + 0.3 * max_score
+        return float(combined), flags
 
     def _fft_check(self, gray):
-        h, w = gray.shape
-        if h < 16 or w < 16:
-            return 0.0, []
+        """
+        FFT grid artifact check.
+        Compares peripheral spectral energy to central, detecting periodic
+        grid-like artifacts typical of GAN upsampling layers.
+        """
         f_transform = np.fft.fft2(gray)
         f_shift = np.fft.fftshift(f_transform)
-        magnitude = 20 * np.log(np.abs(f_shift) + 1).astype(np.float32)
+        magnitude = 20 * np.log(np.abs(f_shift) + 1)
+        h, w = magnitude.shape
+        center = magnitude[h//2-2:h//2+2, w//2-2:w//2+2]
+        periphery = magnitude.copy()
+        periphery[h//4:3*h//4, w//4:3*w//4] = 0
+        p = periphery[periphery > 0]
+        if len(p) == 0:
+            return 0.0, []
+        p_mean = p.mean()
+        p_max = p.max()
+        p_std = p.std()
+        ratio = _safe_div(p_mean, center.mean(), 0)
+        spike_metric = (p_max - p_mean) / max(p_std, 1e-5)
 
-        # Gaussian filter to model smooth natural frequency decay
-        smooth_mag = cv2.GaussianBlur(magnitude, (15, 15), 3.0)
-        residual = magnitude - smooth_mag
+        # Check for uniform backdrop (studio portrait)
+        non_bg_mask = (gray > 15) & (gray < 240)
+        bg_fraction = 1.0 - (np.count_nonzero(non_bg_mask) / float(h * w))
+        is_studio = bg_fraction > 0.35
 
-        # Zero out DC / low frequencies around center
-        r = min(h, w) // 8
-        crow, ccol = h // 2, w // 2
-        y, x = np.ogrid[:h, :w]
-        center_mask = ((y - crow)**2 + (x - ccol)**2) <= r**2
-        residual[center_mask] = 0.0
-
-        std_res = float(np.std(residual))
-        max_res = float(np.max(residual))
-        spike_metric = _safe_div(max_res, std_res, 0.0)
-
-        # Outlier spikes exceeding 5.5 standard deviations indicate synthetic grid lattice
-        score = min(max(0.0, (spike_metric - 5.5) / 4.0), 1.0)
-        flags = ["fft_grid_artifact"] if score > 0.6 else []
+        score = min(ratio / 0.5, 1.0)
+        flags = []
+        if score > 0.6:
+            if not is_studio or spike_metric > 4.8:
+                flags.append("fft_grid_artifact")
         return float(score), flags
 
     def _high_freq_check(self, gray):
@@ -140,7 +157,7 @@ class GANArtifactAnalyzer:
         flags = []
         if entropy < self.p.color_histogram_entropy_min:
             flags.append("low_color_entropy")
-        score = max(0.0, 1.0 - min(entropy / 5.5, 1.0))
+        score = 1.0 - min(entropy / 7.0, 1.0)
         return float(score), flags
 
     def _checkerboard_check(self, gray):
@@ -173,59 +190,29 @@ class GANArtifactAnalyzer:
         block = max(h, w) // 4
         if block < 8:
             return 0.0, []
-
-        blurred = cv2.GaussianBlur(gray, (3, 3), 0.8)
-        res = gray - blurred
-
-        sigmas = []
-        for i in range(0, h - block + 1, block):
-            for j in range(0, w - block + 1, block):
-                patch_res = res[i:i+block, j:j+block]
-                mad = np.median(np.abs(patch_res - np.median(patch_res)))
-                sigma = 1.4826 * mad
-                if sigma > 0.1:
-                    sigmas.append(sigma)
-
-        if len(sigmas) < 2:
+        variances = []
+        for i in range(0, h - block, block):
+            for j in range(0, w - block, block):
+                patch = gray[i:i+block, j:j+block]
+                noise = cv2.Laplacian(patch, cv2.CV_64F).var()
+                variances.append(noise)
+        if len(variances) < 2:
             return 0.0, []
-
-        mean_sigma = np.mean(sigmas)
-        std_sigma = np.std(sigmas)
-        uniformity = float(std_sigma / max(mean_sigma, 1e-4))
-
-        score = min(max(0.0, (uniformity - 0.5) / 0.8), 1.0)
+        uniformity = float(np.std(variances) / max(np.mean(variances), 1e-5))
+        score = min(uniformity / 1.0, 1.0)
         flags = []
-        if uniformity > self.p.noise_variance_uniformity_max and score > 0.5:
+        if uniformity > self.p.noise_variance_uniformity_max:
             flags.append("noise_pattern_inconsistency")
-        return float(score), flags
+        return score, flags
 
-    def _edge_sharpness(self, gray, bgr=None):
+    def _edge_sharpness(self, gray):
         edges = cv2.Canny(gray.astype(np.uint8), 50, 150)
-        h, w = gray.shape
-        if bgr is not None:
-            hsv = cv2.cvtColor(bgr, cv2.COLOR_BGR2HSV)
-            s = hsv[:, :, 1]
-            v = hsv[:, :, 2]
-            is_bg = ((v > 215) & (s < 35)) | (v < 20)
-            fg_pixels = np.count_nonzero(~is_bg)
-            if fg_pixels > (h * w * 0.10):
-                edge_ratio = np.count_nonzero(edges[~is_bg]) / float(fg_pixels)
-            else:
-                edge_ratio = edges.mean() / 255.0
-        else:
-            non_bg_mask = (gray > 20) & (gray < 235)
-            active_pixels = np.count_nonzero(non_bg_mask)
-            if active_pixels > (h * w * 0.10):
-                edge_ratio = np.count_nonzero(edges[non_bg_mask]) / float(active_pixels)
-            else:
-                edge_ratio = edges.mean() / 255.0
-
+        edge_ratio = edges.mean() / 255.0
         lo, hi = self.p.edge_response_sharpness_range
-        effective_lo = min(lo, 0.006)
         flags = []
-        if edge_ratio < effective_lo:
+        if edge_ratio < lo:
             flags.append("edges_too_soft")
-            score = (effective_lo - edge_ratio) / effective_lo
+            score = (lo - edge_ratio) / lo
         elif edge_ratio > hi:
             flags.append("edges_too_sharp")
             score = (edge_ratio - hi) / (1.0 - hi)
@@ -244,32 +231,32 @@ class GANArtifactAnalyzer:
         if h < block * 2 or w < block * 2:
             return 0.0, []
 
-        ratios = []
+        ac_coeffs = []
+        # Sample non-overlapping 8x8 blocks across the image
         step = max(block, (min(h, w) // 16))
         for i in range(0, h - block + 1, step):
             for j in range(0, w - block + 1, step):
                 blk = gray[i:i+block, j:j+block].astype(np.float32)
-                if np.std(blk) < 3.0:
-                    continue  # Skip uniform flat background blocks
                 dct_blk = cv2.dct(blk)
+                # Ignore DC coefficient (top-left) and collect AC coefficients
                 ac_vals = dct_blk.flatten()[1:]
-                std_ac = np.std(ac_vals)
-                mean_ac = np.mean(np.abs(ac_vals))
-                if mean_ac > 1e-3:
-                    ratios.append(std_ac / mean_ac)
+                ac_coeffs.extend(ac_vals)
 
-        if len(ratios) < 10:
+        if len(ac_coeffs) < 64:
             return 0.0, []
 
-        avg_ratio = float(np.mean(ratios))
+        ac_coeffs = np.array(ac_coeffs)
+        ac_std = float(np.std(ac_coeffs))
+        ac_mean_abs = float(np.mean(np.abs(ac_coeffs)))
+        ratio = _safe_div(ac_std, ac_mean_abs, 1.0)
+
         flags = []
         score = 0.0
-        if avg_ratio < 1.15:
-            score = min((1.15 - avg_ratio) / 0.5, 1.0)
+        if ratio < 1.15:
+            score = min((1.15 - ratio) / 0.5, 1.0)
             flags.append("dct_coefficient_anomaly")
-        elif avg_ratio > 3.6:
-            score = min((avg_ratio - 3.6) / 2.0, 1.0)
+        elif ratio > 3.5:
+            score = min((ratio - 3.5) / 2.0, 1.0)
             flags.append("dct_periodic_frequency_anomaly")
 
         return float(score), flags
-
