@@ -178,9 +178,14 @@ class DeepfakeDetector:
         # Outlier / forensic indicator calibration:
         # If any module detects manipulation with high severity (>0.85) accompanied by multiple
         # flags, elevate probability to prevent dilution from unaffected modalities.
+        face_swap_flags = {"blending_boundary_detected", "face_bg_color_mismatch", "ela_manipulation_detected", "face_bg_noise_mismatch"}
+        has_face_swap_indicator = any(f in face_swap_flags for f in flags)
+
         max_module_score = max(adaptive_scores.values()) if adaptive_scores else 0.0
         if max_module_score > 0.85 and len(flags) >= 2:
             probability = max(probability, 0.70 * probability + 0.30 * max_module_score)
+        elif has_face_swap_indicator and max_module_score > 0.35:
+            probability = max(probability, 0.35 * probability + 0.65 * max_module_score)
         elif max_module_score > 0.40 and len(flags) >= 3:
             probability = max(probability, 0.65 * probability + 0.35 * max_module_score)
 

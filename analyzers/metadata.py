@@ -96,11 +96,13 @@ class MetadataAnalyzer:
             text = raw.decode("utf-8", errors="ignore").lower()
 
             for sig in self.p.known_signatures:
+                # 'rvc' is an audio tool; do not match against image files where random bytes mimic it
+                if sig == "rvc" and not path.lower().endswith(('.wav', '.mp3', '.flac', '.ogg', '.m4a')):
+                    continue
                 readable = sig.replace("_", " ").replace("-", " ")
-                # Require word boundaries for very short signatures like 'rvc' to avoid random binary matches
                 if len(sig) <= 4:
                     import re
-                    if re.search(r'\b' + re.escape(sig) + r'\b', text) or re.search(r'\b' + re.escape(readable) + r'\b', text):
+                    if re.search(r'(?:^|[\s"\'<>{}\[\]=:])' + re.escape(sig) + r'(?:$|[\s"\'<>{}\[\]=:])', text):
                         return 0.85, [f"ai_signature_found: {sig}"]
                 else:
                     if readable in text or sig in text:

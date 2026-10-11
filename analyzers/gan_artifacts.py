@@ -100,16 +100,10 @@ class GANArtifactAnalyzer:
         ratio = _safe_div(p_mean, center.mean(), 0)
         spike_metric = (p_max - p_mean) / max(p_std, 1e-5)
 
-        # Check for uniform backdrop (studio portrait)
-        non_bg_mask = (gray > 15) & (gray < 240)
-        bg_fraction = 1.0 - (np.count_nonzero(non_bg_mask) / float(h * w))
-        is_studio = bg_fraction > 0.35
-
-        score = min(ratio / 0.5, 1.0)
+        score = min(max(0.0, (ratio - 0.40) / 0.15), 1.0)
         flags = []
-        if score > 0.6:
-            if not is_studio or spike_metric > 4.8:
-                flags.append("fft_grid_artifact")
+        if ratio > 0.52 and spike_metric > 5.5:
+            flags.append("fft_grid_artifact")
         return float(score), flags
 
     def _high_freq_check(self, gray):
@@ -190,29 +184,51 @@ class GANArtifactAnalyzer:
         block = max(h, w) // 4
         if block < 8:
             return 0.0, []
-        variances = []
-        for i in range(0, h - block, block):
-            for j in range(0, w - block, block):
-                patch = gray[i:i+block, j:j+block]
-                noise = cv2.Laplacian(patch, cv2.CV_64F).var()
-                variances.append(noise)
-        if len(variances) < 2:
+
+        blurred = cv2.GaussianBlur(gray, (3, 3), 0.8)
+        res = gray.astype(np.float64) - blurred.astype(np.float64)
+
+        sigmas = []
+        for i in range(0, h - block + 1, block):
+            for j in range(0, w - block + 1, block):
+                patch_gray = gray[i:i+block, j:j+block]
+                if patch_gray.std() < 3.0:
+                    continue
+                patch_res = res[i:i+block, j:j+block]
+                mad = np.median(np.abs(patch_res - np.median(patch_res)))
+                sigma = 1.4826 * mad
+                if sigma > 0.1:
+                    sigmas.append(sigma)
+
+        if len(sigmas) < 2:
             return 0.0, []
-        uniformity = float(np.std(variances) / max(np.mean(variances), 1e-5))
-        score = min(uniformity / 1.0, 1.0)
+
+        mean_sigma = np.mean(sigmas)
+        std_sigma = np.std(sigmas)
+        uniformity = float(std_sigma / max(mean_sigma, 1e-4))
+
+        score = min(max(0.0, (uniformity - 0.5) / 0.8), 1.0)
         flags = []
-        if uniformity > self.p.noise_variance_uniformity_max:
+        if uniformity > self.p.noise_variance_uniformity_max and score > 0.5:
             flags.append("noise_pattern_inconsistency")
-        return score, flags
+        return float(score), flags
 
     def _edge_sharpness(self, gray):
         edges = cv2.Canny(gray.astype(np.uint8), 50, 150)
-        edge_ratio = edges.mean() / 255.0
+        h, w = gray.shape
+        non_bg_mask = (gray > 15) & (gray < 240)
+        active_pixels = np.count_nonzero(non_bg_mask)
+        if active_pixels > (h * w * 0.15):
+            edge_ratio = np.count_nonzero(edges[non_bg_mask]) / float(active_pixels)
+        else:
+            edge_ratio = edges.mean() / 255.0
+
         lo, hi = self.p.edge_response_sharpness_range
+        effective_lo = min(lo, 0.012)
         flags = []
-        if edge_ratio < lo:
+        if edge_ratio < effective_lo:
             flags.append("edges_too_soft")
-            score = (lo - edge_ratio) / lo
+            score = (effective_lo - edge_ratio) / effective_lo
         elif edge_ratio > hi:
             flags.append("edges_too_sharp")
             score = (edge_ratio - hi) / (1.0 - hi)
@@ -231,32 +247,31 @@ class GANArtifactAnalyzer:
         if h < block * 2 or w < block * 2:
             return 0.0, []
 
-        ac_coeffs = []
-        # Sample non-overlapping 8x8 blocks across the image
+        ratios = []
         step = max(block, (min(h, w) // 16))
         for i in range(0, h - block + 1, step):
             for j in range(0, w - block + 1, step):
                 blk = gray[i:i+block, j:j+block].astype(np.float32)
+                if np.std(blk) < 3.0:
+                    continue  # Skip uniform flat background blocks
                 dct_blk = cv2.dct(blk)
-                # Ignore DC coefficient (top-left) and collect AC coefficients
                 ac_vals = dct_blk.flatten()[1:]
-                ac_coeffs.extend(ac_vals)
+                std_ac = np.std(ac_vals)
+                mean_ac = np.mean(np.abs(ac_vals))
+                if mean_ac > 1e-3:
+                    ratios.append(std_ac / mean_ac)
 
-        if len(ac_coeffs) < 64:
+        if len(ratios) < 10:
             return 0.0, []
 
-        ac_coeffs = np.array(ac_coeffs)
-        ac_std = float(np.std(ac_coeffs))
-        ac_mean_abs = float(np.mean(np.abs(ac_coeffs)))
-        ratio = _safe_div(ac_std, ac_mean_abs, 1.0)
-
+        avg_ratio = float(np.mean(ratios))
         flags = []
         score = 0.0
-        if ratio < 1.15:
-            score = min((1.15 - ratio) / 0.5, 1.0)
+        if avg_ratio < 1.15:
+            score = min((1.15 - avg_ratio) / 0.5, 1.0)
             flags.append("dct_coefficient_anomaly")
-        elif ratio > 3.5:
-            score = min((ratio - 3.5) / 2.0, 1.0)
+        elif avg_ratio > 3.6:
+            score = min((avg_ratio - 3.6) / 2.0, 1.0)
             flags.append("dct_periodic_frequency_anomaly")
 
         return float(score), flags

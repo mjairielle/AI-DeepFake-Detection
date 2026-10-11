@@ -87,11 +87,15 @@ class FacialAnalyzer:
         scores = []
 
         # Skin smoothness (over-smoothed = GAN)
+        # Real human skin typically has variance >= 22. Heavy synthetic smoothing drops below 18.
         lap = cv2.Laplacian(cv2.cvtColor(roi, cv2.COLOR_BGR2GRAY), cv2.CV_64F)
         variance = lap.var()
-        smooth_score = 1.0 - min(variance / 350.0, 1.0)
-        if smooth_score > self.p.skin_smoothness_anomaly_threshold:
-            flags.append("skin_over_smoothed")
+        if variance < 22.0:
+            smooth_score = float(np.clip((22.0 - variance) / 12.0, 0.0, 1.0))
+            if smooth_score > self.p.skin_smoothness_anomaly_threshold:
+                flags.append("skin_over_smoothed")
+        else:
+            smooth_score = 0.0
         scores.append(smooth_score)
 
         # Blending boundary check
@@ -102,17 +106,22 @@ class FacialAnalyzer:
 
         # Color mismatch face vs background
         cm = self._color_mismatch(roi, full, x, y, w, h)
-        cm_norm = min(max(0.0, (cm - 15.0) / 35.0), 1.0)
         effective_cm_tol = max(self.p.color_mismatch_tolerance, 26.0)
         if cm > effective_cm_tol:
             flags.append("face_bg_color_mismatch")
+            cm_norm = min(max(0.0, (cm - effective_cm_tol) / 25.0) + 0.35, 1.0)
+        else:
+            cm_norm = min(max(0.0, (cm - 15.0) / 45.0), 0.20) if cm > 15.0 else 0.0
         scores.append(cm_norm)
 
         # Noise ratio face vs background
         nr = self._noise_ratio(roi, full, x, y, w, h)
         if nr > self.p.face_bg_noise_ratio_threshold:
             flags.append("face_bg_noise_mismatch")
-        scores.append(min(nr / 3.0, 1.0))
+            nr_norm = min(0.70 + (nr - self.p.face_bg_noise_ratio_threshold) * 1.0, 1.0)
+        else:
+            nr_norm = min(max(0.0, (nr - 1.5) / 0.3) * 0.15, 0.15) if nr > 1.5 else 0.0
+        scores.append(nr_norm)
 
         # Symmetry check
         sym = self._symmetry_score(roi)
@@ -125,25 +134,33 @@ class FacialAnalyzer:
         ela_score = self._ela_analysis(roi)
         if ela_score > 0.55:
             flags.append("ela_manipulation_detected")
-        scores.append(ela_score)
+            scores.append(float(np.clip((ela_score - 0.50) / 0.30 + 0.50, 0.0, 1.0)))
+        else:
+            scores.append(min(max(0.0, (ela_score - 0.35) / 0.20) * 0.20, 0.20) if ela_score > 0.35 else 0.0)
 
         # Pore / texture detail score (multi-scale frequency analysis)
         pore_score = self._pore_visibility(roi)
         if pore_score < self.p.pore_visibility_min_score:
             flags.append("low_skin_texture_detail")
-        scores.append(1.0 - pore_score)  # higher = more suspicious (less pore detail)
+            pore_anomaly = float(np.clip(1.0 - (pore_score / max(self.p.pore_visibility_min_score, 0.01)), 0.0, 1.0))
+        else:
+            pore_anomaly = 0.0
+        scores.append(pore_anomaly)
 
         # Teeth detail analysis
         teeth_score = self._teeth_detail(roi)
         if teeth_score < self.p.teeth_detail_score_min:
             flags.append("teeth_detail_anomaly")
-        scores.append(1.0 - teeth_score)
+            teeth_anomaly = float(np.clip(1.0 - (teeth_score / max(self.p.teeth_detail_score_min, 0.01)), 0.0, 1.0))
+        else:
+            teeth_anomaly = 0.0
+        scores.append(teeth_anomaly)
 
         top_scores = sorted(scores, reverse=True)
         max_score = top_scores[0]
         mean_score = float(np.mean(scores))
         if max_score > 0.4:
-            return float(0.6 * max_score + 0.4 * mean_score), flags
+            return float(0.75 * max_score + 0.25 * mean_score), flags
         return mean_score, flags
 
     def _check_blending(self, img, x, y, w, h):
@@ -157,6 +174,10 @@ class FacialAnalyzer:
 
     def _color_mismatch(self, roi, full, x, y, w, h):
         H, W = full.shape[:2]
+        # In tight crops where face dominates image (> 40% area), background comparison is invalid
+        if (w * h) / float(H * W) > 0.40:
+            return 0.0
+
         bg = full.copy()
         bg[y:y+h, x:x+w] = 0
         bg_gray = cv2.cvtColor(bg, cv2.COLOR_BGR2GRAY)
@@ -258,7 +279,7 @@ class FacialAnalyzer:
         g2 = cv2.GaussianBlur(gray, (7, 7), 1.5)
         dog = cv2.absdiff(g1, g2).astype(np.float64)
         texture_energy = np.var(dog)
-        score = min(texture_energy / 35.0, 1.0)
+        score = min(texture_energy / 8.0, 1.0)
         return float(np.clip(score, 0.0, 1.0))
 
     def _teeth_detail(self, roi: np.ndarray) -> float:
@@ -277,12 +298,18 @@ class FacialAnalyzer:
             return 0.85
 
         gray_mouth = cv2.cvtColor(mouth, cv2.COLOR_BGR2GRAY)
-        teeth_mask = gray_mouth > 165
+        hsv_mouth = cv2.cvtColor(mouth, cv2.COLOR_BGR2HSV)
+        is_monochrome = float(np.mean(hsv_mouth[:, :, 1])) < 12.0
+        if is_monochrome:
+            return 0.85
+
+        # Teeth are desaturated and high brightness; fair skin and lips have higher saturation
+        teeth_mask = (hsv_mouth[:, :, 1] < 35) & (gray_mouth > 175)
         teeth_pixel_count = np.count_nonzero(teeth_mask)
         mouth_area = mouth.shape[0] * mouth.shape[1]
         teeth_ratio = teeth_pixel_count / max(mouth_area, 1)
 
-        if teeth_ratio < 0.03:
+        if teeth_ratio < 0.04:
             return 0.85
 
         sobel_x = cv2.Sobel(gray_mouth, cv2.CV_64F, 1, 0, ksize=3)
