@@ -80,8 +80,8 @@ class FacialAnalyzer:
         # Skin smoothness (over-smoothed = GAN)
         lap = cv2.Laplacian(cv2.cvtColor(roi, cv2.COLOR_BGR2GRAY), cv2.CV_64F)
         variance = lap.var()
-        smooth_score = 1.0 - min(variance / 500.0, 1.0)
-        if smooth_score > self.p.skin_smoothness_anomaly_threshold:
+        smooth_score = max(0.0, 1.0 - (variance / 80.0)) if variance < 80.0 else 0.0
+        if variance < 12.0 and smooth_score > self.p.skin_smoothness_anomaly_threshold:
             flags.append("skin_over_smoothed")
         scores.append(smooth_score)
 
@@ -93,8 +93,9 @@ class FacialAnalyzer:
 
         # Color mismatch face vs background
         cm = self._color_mismatch(roi, full, x, y, w, h)
-        cm_norm = min(cm / 50.0, 1.0)
-        if cm > self.p.color_mismatch_tolerance:
+        cm_norm = min(max(0.0, (cm - 15.0) / 35.0), 1.0)
+        effective_cm_tol = max(self.p.color_mismatch_tolerance, 26.0)
+        if cm > effective_cm_tol:
             flags.append("face_bg_color_mismatch")
         scores.append(cm_norm)
 
@@ -102,13 +103,14 @@ class FacialAnalyzer:
         nr = self._noise_ratio(roi, full, x, y, w, h)
         if nr > self.p.face_bg_noise_ratio_threshold:
             flags.append("face_bg_noise_mismatch")
-        scores.append(min(nr / 3.0, 1.0))
+        scores.append(min(max(0.0, (nr - 1.2) / 2.0), 1.0))
 
         # Symmetry check
         sym = self._symmetry_score(roi)
-        if sym > self.p.landmark_symmetry_tolerance:
+        effective_sym_tol = max(self.p.landmark_symmetry_tolerance, 0.24)
+        if sym > effective_sym_tol:
             flags.append("facial_asymmetry_anomaly")
-        scores.append(min(sym / 0.5, 1.0))
+        scores.append(min(max(0.0, (sym - 0.15) / 0.35), 1.0))
 
         # Error Level Analysis (ELA) — detects splicing / manipulation
         ela_score = self._ela_analysis(roi)
@@ -118,13 +120,15 @@ class FacialAnalyzer:
 
         # Pore / texture detail score (multi-scale frequency analysis)
         pore_score = self._pore_visibility(roi)
-        if pore_score < self.p.pore_visibility_min_score:
+        effective_pore_min = min(self.p.pore_visibility_min_score, 0.22)
+        if pore_score < effective_pore_min:
             flags.append("low_skin_texture_detail")
         scores.append(1.0 - pore_score)  # higher = more suspicious (less pore detail)
 
         # Teeth detail analysis
         teeth_score = self._teeth_detail(roi)
-        if teeth_score < self.p.teeth_detail_score_min:
+        effective_teeth_min = min(self.p.teeth_detail_score_min, 0.45)
+        if teeth_score < effective_teeth_min:
             flags.append("teeth_detail_anomaly")
         scores.append(1.0 - teeth_score)
 
@@ -140,9 +144,44 @@ class FacialAnalyzer:
         return float(np.mean(np.abs(border_pixels)) / 255.0) if len(border_pixels) else 0.0
 
     def _color_mismatch(self, roi, full, x, y, w, h):
-        face_lab = cv2.cvtColor(roi, cv2.COLOR_BGR2Lab).astype(float)
+        H, W = full.shape[:2]
         bg = full.copy()
         bg[y:y+h, x:x+w] = 0
+        bg_gray = cv2.cvtColor(bg, cv2.COLOR_BGR2GRAY)
+        mask = bg_gray > 0
+        if not mask.any():
+            return 0.0
+        bg_pixels = bg_gray[mask]
+        high_lum_ratio = np.count_nonzero(bg_pixels > 225) / float(len(bg_pixels))
+        is_studio = (high_lum_ratio > 0.35) or (float(np.std(bg_pixels)) < 25.0)
+
+        if is_studio:
+            # On a studio backdrop, comparing face to white wall is invalid.
+            # Check adjacent neck/chest skin below chin for donor mismatch instead.
+            neck_y1 = min(y + h, H - 1)
+            neck_y2 = min(y + int(h * 1.5), H)
+            neck_x1 = max(x + int(w * 0.2), 0)
+            neck_x2 = min(x + int(w * 0.8), W)
+
+            if neck_y2 > neck_y1 and neck_x2 > neck_x1:
+                neck_roi = full[neck_y1:neck_y2, neck_x1:neck_x2]
+                hsv_neck = cv2.cvtColor(neck_roi, cv2.COLOR_BGR2HSV)
+                lower_skin = np.array([0, 20, 70], dtype=np.uint8)
+                upper_skin = np.array([25, 255, 255], dtype=np.uint8)
+                neck_skin_mask = cv2.inRange(hsv_neck, lower_skin, upper_skin)
+                skin_count = np.count_nonzero(neck_skin_mask)
+                total_neck = neck_roi.shape[0] * neck_roi.shape[1]
+
+                if skin_count > (total_neck * 0.20) and skin_count > 100:
+                    face_lab = cv2.cvtColor(roi, cv2.COLOR_BGR2Lab).astype(float)
+                    neck_lab = cv2.cvtColor(neck_roi, cv2.COLOR_BGR2Lab).astype(float)
+                    face_mean = face_lab.mean(axis=(0, 1))
+                    neck_mean = neck_lab[neck_skin_mask > 0].mean(axis=0)
+                    return float(np.linalg.norm(face_mean - neck_mean))
+
+            return 0.0
+
+        face_lab = cv2.cvtColor(roi, cv2.COLOR_BGR2Lab).astype(float)
         bg_lab = cv2.cvtColor(bg, cv2.COLOR_BGR2Lab).astype(float)
         bg_mask = bg_lab.sum(axis=2) > 0
         if not bg_mask.any():
@@ -158,6 +197,10 @@ class FacialAnalyzer:
         bg[y:y+h, x:x+w] = 0
         bg_gray = cv2.cvtColor(bg, cv2.COLOR_BGR2GRAY).astype(float)
         bg_noise = cv2.Laplacian(bg_gray, cv2.CV_64F).var()
+
+        if bg_noise < 15.0 or face_noise < 15.0:
+            return 1.0
+
         return _safe_div(face_noise, bg_noise, 1.0)
 
     def _symmetry_score(self, roi):
@@ -203,7 +246,7 @@ class FacialAnalyzer:
         g2 = cv2.GaussianBlur(gray, (7, 7), 1.5)
         dog = cv2.absdiff(g1, g2).astype(np.float64)
         texture_energy = np.var(dog)
-        score = min(texture_energy / 50.0, 1.0)
+        score = min(texture_energy / 15.0, 1.0)
         return float(np.clip(score, 0.0, 1.0))
 
     def _teeth_detail(self, roi: np.ndarray) -> float:
@@ -214,12 +257,12 @@ class FacialAnalyzer:
         """
         h, w = roi.shape[:2]
         if h < 20 or w < 20:
-            return 0.8
+            return 0.85
         mouth_y1, mouth_y2 = int(h * 0.65), int(h * 0.95)
         mouth_x1, mouth_x2 = int(w * 0.25), int(w * 0.75)
         mouth = roi[mouth_y1:mouth_y2, mouth_x1:mouth_x2]
         if mouth.size == 0:
-            return 0.8
+            return 0.85
 
         gray_mouth = cv2.cvtColor(mouth, cv2.COLOR_BGR2GRAY)
         teeth_mask = gray_mouth > 165
@@ -234,7 +277,7 @@ class FacialAnalyzer:
         teeth_edges = np.abs(sobel_x)[teeth_mask]
         if len(teeth_edges) == 0:
             return 0.85
-        edge_strength = np.mean(teeth_edges)
-        detail_score = min(edge_strength / 40.0, 1.0)
+        edge_strength = float(np.mean(teeth_edges))
+        detail_score = min(edge_strength / 20.0, 1.0)
         return float(np.clip(detail_score, 0.0, 1.0))
 
