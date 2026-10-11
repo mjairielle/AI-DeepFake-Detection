@@ -73,6 +73,10 @@ class PatternMemory:
         keys = sorted(module_scores.keys())
         query = np.array([module_scores.get(k, 0.0) for k in keys])
 
+        # Authentic media with low overall scores should not match deepfake patterns
+        if float(np.mean(query)) < 0.35 or float(np.linalg.norm(query)) < 0.40:
+            return None
+
         best_sim = 0.0
         best_match = None
 
@@ -83,10 +87,13 @@ class PatternMemory:
             q = np.pad(query, (0, max(0, max_len - len(query))))
             p = np.pad(pat_vec, (0, max(0, max_len - len(pat_vec))))
 
-            # Cosine similarity
+            # Cosine similarity combined with magnitude agreement
             dot = np.dot(q, p)
             norm = np.linalg.norm(q) * np.linalg.norm(p)
-            sim = dot / norm if norm > 1e-10 else 0.0
+            cos_sim = dot / norm if norm > 1e-10 else 0.0
+
+            mag_diff = abs(np.linalg.norm(q) - np.linalg.norm(p))
+            sim = cos_sim * max(0.0, 1.0 - (mag_diff / max(np.linalg.norm(p), 1e-5)))
 
             if sim > best_sim:
                 best_sim = sim

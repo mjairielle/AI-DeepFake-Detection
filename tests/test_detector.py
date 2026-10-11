@@ -53,3 +53,27 @@ def test_detector_size_limit(detector, tmp_path):
     result = detector.analyze(str(p))
     assert result.verdict == "error"
     assert "file_exceeds_max_size" in result.flags
+
+def test_detector_authentic_studio_portrait(detector, tmp_path):
+    """Ensure authentic portraits on plain/studio backdrops are classified as authentic."""
+    p = tmp_path / "portrait.jpg"
+    # Create an image with a white studio backdrop (240-250) and a natural subject
+    img = np.ones((256, 256, 3), dtype=np.uint8) * 245
+    # Add a person silhouette/skin region
+    cv2.circle(img, (128, 110), 50, (140, 175, 220), -1)  # Face skin tone in BGR
+    cv2.rectangle(img, (78, 150), (178, 256), (30, 30, 30), -1)  # Dark clothing
+    # Add soft eye/mouth features
+    cv2.circle(img, (110, 100), 5, (50, 40, 30), -1)
+    cv2.circle(img, (146, 100), 5, (50, 40, 30), -1)
+    cv2.ellipse(img, (128, 130), (15, 6), 0, 0, 180, (60, 50, 180), -1)
+    # Natural camera sensor noise
+    noise = np.random.normal(0, 2, img.shape).astype(np.int16)
+    noisy_img = np.clip(img.astype(np.int16) + noise, 0, 255).astype(np.uint8)
+    cv2.imwrite(str(p), noisy_img, [int(cv2.IMWRITE_JPEG_QUALITY), 95])
+
+    result = detector.analyze(str(p))
+    assert result.verdict == Verdict.AUTHENTIC.value
+    assert result.deepfake_probability <= 0.30
+    assert "face_bg_color_mismatch" not in result.flags
+    assert "checkerboard_pattern" not in result.flags
+    assert "fft_grid_artifact" not in result.flags

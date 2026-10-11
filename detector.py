@@ -85,7 +85,10 @@ class DeepfakeDetector:
             module_scores["gan_artifacts"] = 0.0
             module_scores["noise_analysis"] = 0.0
         else:
-            module_scores["noise_analysis"] = module_scores.get("gan_artifacts", 0)
+            gray = cv2.cvtColor(bgr, cv2.COLOR_BGR2GRAY).astype(np.float64)
+            nu_score, nu_flags = self.gan._noise_uniformity(gray)
+            module_scores["noise_analysis"] = nu_score
+            all_flags.extend(nu_flags)
 
         weights = self.config.scoring.image_weights
         return self._build_result(
@@ -206,7 +209,10 @@ class DeepfakeDetector:
         else:
             verdict = Verdict.DEEPFAKE.value
 
-        manip = self._infer_manipulation(flags)
+        if verdict == Verdict.AUTHENTIC.value:
+            manip = ManipulationType.UNKNOWN.value
+        else:
+            manip = self._infer_manipulation(flags)
 
         elapsed = (time.perf_counter() - t0) * 1000
 
