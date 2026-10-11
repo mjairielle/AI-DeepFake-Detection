@@ -7,6 +7,7 @@ from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 
 from detector import DeepfakeDetector
+from models import DeepfakeDetectionConfig
 from media_utils import IMAGE_EXTS, VIDEO_EXTS, AUDIO_EXTS
 from security import (
     file_sanitizer, input_validator, rate_limiter,
@@ -56,9 +57,52 @@ def health():
         "learning": learning,
     })
 
-@app.route("/api/config", methods=["GET"])
-def get_config():
-    """Return current detection configuration."""
+@app.route("/api/config", methods=["GET", "POST"])
+def manage_config():
+    """Return or update current detection configuration."""
+    if request.method == "POST":
+        data = request.get_json()
+        if not data:
+            return jsonify({"error": "JSON body required."}), 400
+        try:
+            if data.get("_reset"):
+                detector.config = DeepfakeDetectionConfig()
+                detector.facial   = detector.facial.__class__(detector.config.facial)
+                detector.temporal = detector.temporal.__class__(detector.config.temporal)
+                detector.audio    = detector.audio.__class__(detector.config.audio)
+                detector.gan      = detector.gan.__class__(detector.config.gan)
+                detector.metadata = detector.metadata.__class__(detector.config.metadata)
+                return jsonify({"status": "reset", "config": asdict(detector.config)})
+            for group, params in data.items():
+                if hasattr(detector.config, group) and isinstance(params, dict):
+                    group_obj = getattr(detector.config, group)
+                    for key, val in params.items():
+                        if hasattr(group_obj, key):
+                            current_val = getattr(group_obj, key)
+                            if isinstance(current_val, bool):
+                                val = bool(val) if isinstance(val, bool) else str(val).lower() == 'true'
+                            elif isinstance(current_val, int) and not isinstance(current_val, bool):
+                                val = int(float(val))
+                            elif isinstance(current_val, float):
+                                val = float(val)
+                            elif isinstance(current_val, dict) and isinstance(val, dict):
+                                updated_dict = dict(current_val)
+                                for dk, dv in val.items():
+                                    try:
+                                        updated_dict[dk] = float(dv)
+                                    except (ValueError, TypeError):
+                                        updated_dict[dk] = dv
+                                val = updated_dict
+                            setattr(group_obj, key, val)
+            # Propagate updated config parameters to analyzer modules
+            detector.facial.p = detector.config.facial
+            detector.temporal.p = detector.config.temporal
+            detector.audio.p = detector.config.audio
+            detector.gan.p = detector.config.gan
+            detector.metadata.p = detector.config.metadata
+            return jsonify({"status": "success", "config": asdict(detector.config)})
+        except Exception as e:
+            return jsonify({"error": str(e)}), 400
     return jsonify({"config": asdict(detector.config)})
 
 @app.route("/api/analyze", methods=["POST"])

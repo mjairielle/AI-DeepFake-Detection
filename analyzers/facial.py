@@ -110,6 +110,24 @@ class FacialAnalyzer:
             flags.append("facial_asymmetry_anomaly")
         scores.append(min(sym / 0.5, 1.0))
 
+        # Error Level Analysis (ELA) — detects splicing / manipulation
+        ela_score = self._ela_analysis(roi)
+        if ela_score > 0.55:
+            flags.append("ela_manipulation_detected")
+        scores.append(ela_score)
+
+        # Pore / texture detail score (multi-scale frequency analysis)
+        pore_score = self._pore_visibility(roi)
+        if pore_score < self.p.pore_visibility_min_score:
+            flags.append("low_skin_texture_detail")
+        scores.append(1.0 - pore_score)  # higher = more suspicious (less pore detail)
+
+        # Teeth detail analysis
+        teeth_score = self._teeth_detail(roi)
+        if teeth_score < self.p.teeth_detail_score_min:
+            flags.append("teeth_detail_anomaly")
+        scores.append(1.0 - teeth_score)
+
         return float(np.mean(scores)), flags
 
     def _check_blending(self, img, x, y, w, h):
@@ -150,3 +168,73 @@ class FacialAnalyzer:
         left, right = left[:, :min_w], right[:, :min_w]
         diff = np.abs(left.astype(float) - right.astype(float))
         return float(diff.mean() / 255.0)
+
+    def _ela_analysis(self, roi: np.ndarray, quality: int = 90) -> float:
+        """
+        Error Level Analysis (ELA).
+        Re-compresses ROI at specified quality and checks error distribution.
+        Manipulated, spliced, or synthetic regions typically display abnormal error variance.
+        """
+        if roi.size == 0 or min(roi.shape[:2]) < 8:
+            return 0.0
+        success, encoded = cv2.imencode('.jpg', roi, [int(cv2.IMWRITE_JPEG_QUALITY), quality])
+        if not success:
+            return 0.0
+        resaved = cv2.imdecode(encoded, cv2.IMREAD_COLOR)
+        if resaved is None:
+            return 0.0
+        diff = cv2.absdiff(roi, resaved).astype(np.float64)
+        diff_mean = np.mean(diff)
+        diff_std = np.std(diff)
+        ela_metric = min((diff_mean * 2.0 + diff_std * 3.0) / 40.0, 1.0)
+        return float(np.clip(ela_metric, 0.0, 1.0))
+
+    def _pore_visibility(self, roi: np.ndarray) -> float:
+        """
+        Multi-scale frequency analysis for natural skin micro-texture / pore visibility.
+        Natural skin has fine micro-texture in high frequencies; GANs smooth or hallucinate.
+        Returns a score in [0.0, 1.0], where higher = more natural micro-texture detected.
+        """
+        if roi.size == 0 or min(roi.shape[:2]) < 16:
+            return 0.5
+        gray = cv2.cvtColor(roi, cv2.COLOR_BGR2GRAY)
+        # Difference of Gaussians (DoG) for high-frequency micro-texture band
+        g1 = cv2.GaussianBlur(gray, (3, 3), 0.5)
+        g2 = cv2.GaussianBlur(gray, (7, 7), 1.5)
+        dog = cv2.absdiff(g1, g2).astype(np.float64)
+        texture_energy = np.var(dog)
+        score = min(texture_energy / 50.0, 1.0)
+        return float(np.clip(score, 0.0, 1.0))
+
+    def _teeth_detail(self, roi: np.ndarray) -> float:
+        """
+        Analyzes teeth detail in the mouth region.
+        Deepfakes frequently produce merged, blurred, or textureless teeth.
+        Returns score in [0.0, 1.0], where higher = well-defined teeth or neutral if mouth closed.
+        """
+        h, w = roi.shape[:2]
+        if h < 20 or w < 20:
+            return 0.8
+        mouth_y1, mouth_y2 = int(h * 0.65), int(h * 0.95)
+        mouth_x1, mouth_x2 = int(w * 0.25), int(w * 0.75)
+        mouth = roi[mouth_y1:mouth_y2, mouth_x1:mouth_x2]
+        if mouth.size == 0:
+            return 0.8
+
+        gray_mouth = cv2.cvtColor(mouth, cv2.COLOR_BGR2GRAY)
+        teeth_mask = gray_mouth > 165
+        teeth_pixel_count = np.count_nonzero(teeth_mask)
+        mouth_area = mouth.shape[0] * mouth.shape[1]
+        teeth_ratio = teeth_pixel_count / max(mouth_area, 1)
+
+        if teeth_ratio < 0.03:
+            return 0.85
+
+        sobel_x = cv2.Sobel(gray_mouth, cv2.CV_64F, 1, 0, ksize=3)
+        teeth_edges = np.abs(sobel_x)[teeth_mask]
+        if len(teeth_edges) == 0:
+            return 0.85
+        edge_strength = np.mean(teeth_edges)
+        detail_score = min(edge_strength / 40.0, 1.0)
+        return float(np.clip(detail_score, 0.0, 1.0))
+

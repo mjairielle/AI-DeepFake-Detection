@@ -1,441 +1,893 @@
 <!DOCTYPE html>
-<html lang="en">
+<html class="dark" lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>DeepScan AI | Forensic Deepfake Detection</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/static/styles.css">
+    <meta charset="utf-8">
+    <meta content="width=device-width, initial-scale=1.0" name="viewport">
+    <title>DeepScan AI — Forensic Media Intelligence</title>
+    <!-- Fonts -->
+    <link href="https://fonts.googleapis.com" rel="preconnect">
+    <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect">
+    <link href="https://fonts.googleapis.com/css2?family=Geist+Mono:wght@400;500;600;700&family=Geist:wght@300;400;500;600;700&family=Instrument+Serif:ital@0;1&family=Libre+Caslon+Text:ital,wght@0,400;0,700;1,400&family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
+    <!-- Tailwind CSS with custom forensic design tokens -->
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "surface": "#131313",
+                        "surface-dim": "#131313",
+                        "surface-bright": "#393939",
+                        "surface-container-lowest": "#0e0e0e",
+                        "surface-container-low": "#1b1c1c",
+                        "surface-container": "#202020",
+                        "surface-container-high": "#292928",
+                        "surface-container-highest": "#323231",
+                        "on-surface": "#e5e2e1",
+                        "on-surface-variant": "#cac6bc",
+                        "outline": "#939187",
+                        "outline-variant": "#48473f",
+                        "primary": "#f3eedc",
+                        "on-primary": "#202020",
+                        "primary-container": "#d6d2c0",
+                        "secondary": "#ffb4a4",
+                        "secondary-container": "#822d1b",
+                        "coral": "#e87a62",
+                        "sand": "#d6d2c0",
+                        "stone": "#a09c8f",
+                        "error": "#ffb4ab",
+                        "error-container": "#93000a"
+                    },
+                    borderRadius: {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    spacing: {
+                        "gutter": "1.5rem",
+                        "space-xs": "0.25rem",
+                        "space-sm": "0.5rem",
+                        "space-md": "1rem",
+                        "space-lg": "1.5rem",
+                        "space-xl": "2.5rem"
+                    },
+                    fontFamily: {
+                        "serif-display": ["Instrument Serif", "Libre Caslon Text", "Georgia", "serif"],
+                        "headline": ["Libre Caslon Text", "Georgia", "serif"],
+                        "sans": ["Geist", "sans-serif"],
+                        "mono-custom": ["Geist Mono", "monospace"]
+                    }
+                }
+            }
+        }
+    </script>
+    <link href="/static/styles.css" rel="stylesheet">
 </head>
-<body>
-
-    <!-- Ambient Background Elements -->
-    <div class="cyber-grid"></div>
-    <div class="ambient-blob primary"></div>
-    <div class="ambient-blob secondary"></div>
+<body class="bg-[#202020] text-[#e5e2e1] antialiased min-h-screen relative overflow-x-hidden selection:bg-[#822d1b] selection:text-[#ffdad3]">
+    <!-- Atmospheric Grain & Warm Radial Glow -->
+    <div class="fixed inset-0 pointer-events-none custom-grain z-0"></div>
+    <div class="fixed top-12 left-1/2 -translate-x-1/2 w-[720px] h-[480px] bg-[#822d1b]/20 rounded-full blur-[140px] pointer-events-none z-0"></div>
 
     <!-- Loading Overlay -->
     <div class="loading-overlay" id="loading-overlay">
         <div class="spinner"></div>
-        <span>Analyzing...</span>
+        <p class="font-mono-custom text-sm text-[#f3eedc] tracking-wider" id="loading-text">FORENSIC MULTI-MODAL INFERENCE IN PROGRESS...</p>
     </div>
 
-    <!-- Toast Notification Container -->
-    <div id="toast-container" class="toast-container"></div>
+    <!-- Toast Notifications -->
+    <div id="toast-container"></div>
 
-    <!-- Mobile Header -->
-    <header class="mobile-header">
-        <div style="display: flex; align-items: center; gap: 8px;">
-            <span class="material-symbols-outlined" style="color: var(--primary);">shield</span>
-            <span style="font-weight: 700; color: var(--primary);">DeepScan AI</span>
+    <!-- Shared Top Navigation Bar -->
+    <header class="bg-[#202020]/95 backdrop-blur-md sticky top-0 z-50 border-b border-[rgba(227,223,207,0.10)]">
+        <div class="max-w-[1216px] mx-auto px-6 flex items-center justify-between h-16 w-full">
+            <!-- Brand Anchor -->
+            <div class="flex items-center gap-2 cursor-pointer group" onclick="navigateTo('upload')">
+                <span class="material-symbols-outlined text-[#e87a62] text-[22px] transition-transform group-hover:scale-105" data-icon="fingerprint">fingerprint</span>
+                <span class="font-serif-display text-2xl tracking-tight text-[#f3eedc]">DeepScan AI</span>
+            </div>
+
+            <!-- Centered Navigation Cluster -->
+            <nav class="hidden md:flex items-center space-x-6 text-sm">
+                <a class="nav-link text-[#f3eedc] border-b-2 border-[#e87a62] pb-1 font-medium" data-page="upload" href="#upload">Analyze</a>
+                <a class="nav-link text-[#cac6bc] hover:text-[#f3eedc] transition-colors pb-1" data-page="results" href="#results">Results</a>
+                <a class="nav-link text-[#cac6bc] hover:text-[#f3eedc] transition-colors pb-1" data-page="batch" href="#batch">Batch</a>
+                <a class="nav-link text-[#cac6bc] hover:text-[#f3eedc] transition-colors pb-1" data-page="feedback" href="#feedback">Feedback</a>
+                <a class="nav-link text-[#cac6bc] hover:text-[#f3eedc] transition-colors pb-1" data-page="learning" href="#learning">Learning</a>
+                <a class="nav-link text-[#cac6bc] hover:text-[#f3eedc] transition-colors pb-1" data-page="tuning" href="#tuning">Tuning</a>
+                <a class="nav-link text-[#cac6bc] hover:text-[#f3eedc] transition-colors pb-1" data-page="system" href="#system">System</a>
+            </nav>
+
+            <!-- Trailing Status Actions -->
+            <div class="flex items-center gap-4">
+                <div class="flex items-center gap-2 text-xs">
+                    <span class="relative flex h-2 w-2">
+                        <span class="status-pulse absolute inline-flex h-full w-full rounded-full bg-emerald-500 opacity-75"></span>
+                        <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-400"></span>
+                    </span>
+                    <span class="text-[#f3eedc] font-medium tracking-wide">Core active</span>
+                </div>
+                <div class="hidden lg:block h-3.5 w-px bg-[rgba(227,223,207,0.15)]"></div>
+                <span class="hidden lg:inline text-[#a09c8f] text-xs font-mono-custom tracking-tight" id="header-engine-tag">Neural Engine: v4.2.1</span>
+                <!-- Mobile Menu Toggle Button -->
+                <button class="md:hidden p-2 text-[#cac6bc] hover:text-[#f3eedc]" onclick="toggleMobileMenu()" aria-label="Toggle Navigation">
+                    <span class="material-symbols-outlined text-2xl">menu</span>
+                </button>
+            </div>
         </div>
-        <button onclick="toggleSidebar()" style="background: none; border: none; color: var(--on-surface);">
-            <span class="material-symbols-outlined">menu</span>
-        </button>
+
+        <!-- Mobile Navigation Drawer -->
+        <div class="hidden md:hidden border-t border-[rgba(227,223,207,0.10)] bg-[#1b1c1c] px-6 py-4" id="mobile-nav-drawer">
+            <nav class="flex flex-col space-y-3 font-medium text-sm">
+                <a class="nav-link-mobile text-[#f3eedc] py-1" data-page="upload" href="#upload">Analyze</a>
+                <a class="nav-link-mobile text-[#cac6bc] hover:text-[#f3eedc] py-1" data-page="results" href="#results">Results</a>
+                <a class="nav-link-mobile text-[#cac6bc] hover:text-[#f3eedc] py-1" data-page="batch" href="#batch">Batch Analysis</a>
+                <a class="nav-link-mobile text-[#cac6bc] hover:text-[#f3eedc] py-1" data-page="feedback" href="#feedback">Submit Feedback</a>
+                <a class="nav-link-mobile text-[#cac6bc] hover:text-[#f3eedc] py-1" data-page="learning" href="#learning">Adaptive Learning</a>
+                <a class="nav-link-mobile text-[#cac6bc] hover:text-[#f3eedc] py-1" data-page="tuning" href="#tuning">Hyperparameter Tuning</a>
+                <a class="nav-link-mobile text-[#cac6bc] hover:text-[#f3eedc] py-1" data-page="system" href="#system">System & Health</a>
+            </nav>
+        </div>
     </header>
 
-    <!-- Sidebar -->
-    <aside class="sidebar" id="sidebar">
-        <div class="sidebar-logo">
-            <span class="material-symbols-outlined" style="font-size: 32px; color: var(--primary);">shield</span>
-            <span style="font-size: 20px; font-weight: 700; color: var(--primary);">DeepScan AI</span>
-        </div>
-        <nav class="sidebar-nav">
-            <ul>
-                <li><a href="#" class="active" data-page="upload"><span class="material-symbols-outlined">security</span>Analyze</a></li>
-                <li><a href="#" data-page="results"><span class="material-symbols-outlined">analytics</span>Results</a></li>
-                <li><a href="#" data-page="batch"><span class="material-symbols-outlined">layers</span>Batch</a></li>
-                <li><a href="#" data-page="feedback"><span class="material-symbols-outlined">forum</span>Feedback</a></li>
-                <li><a href="#" data-page="learning"><span class="material-symbols-outlined">school</span>Learning</a></li>
-                <li><a href="#" data-page="health"><span class="material-symbols-outlined">settings</span>System</a></li>
-            </ul>
-        </nav>
-        <div class="sidebar-footer glass-panel">
-            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
-                <div class="status-dot online"></div>
-                <span class="label-md" style="color: var(--primary);">CORE ACTIVE</span>
-            </div>
-            <div class="body-sm" style="color: var(--on-surface-variant);">Neural Engine: v4.2.1</div>
-        </div>
-    </aside>
+    <!-- Main Container -->
+    <main class="relative z-10 max-w-[1216px] mx-auto px-6 pt-10 pb-24">
 
-    <!-- Main Content -->
-    <main class="main-content">
-
-        <!-- SECTION: UPLOAD -->
+        <!-- ═══════════════════════════════════════════════
+             SECTION: ANALYZE / HOME
+             ═══════════════════════════════════════════════ -->
         <section class="page-section active" id="page-upload">
-            <div class="hero-container">
-                <div class="hero-badge">
-                    <span class="material-symbols-outlined" style="font-size: 16px;">new_releases</span>
-                    V4.0 ADAPTIVE ENGINE ONLINE
+            <!-- Hero Section -->
+            <div class="text-center max-w-3xl mx-auto mb-14">
+                <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#292928] border border-[rgba(227,223,207,0.10)] mb-6 shadow-sm">
+                    <span class="h-1.5 w-1.5 rounded-full bg-emerald-400 status-pulse"></span>
+                    <span class="text-xs text-[#a09c8f] font-mono-custom uppercase tracking-wider">V4.0 adaptive engine online</span>
                 </div>
-                <h1 class="hero-title">DeepScan <span>AI</span></h1>
-                <p class="hero-subtitle">Military-Grade Deepfake Detection Powered by Adaptive AI. Forensic precision for a post-truth digital era.</p>
-                
-                <div class="stats-row">
-                    <div class="stat-badge" style="border-left-color: var(--secondary);">
-                        <span class="material-symbols-outlined" style="color: var(--secondary);">dynamic_form</span>
-                        5 Analysis Modules
-                    </div>
-                    <div class="stat-badge" style="border-left-color: var(--primary);">
-                        <span class="material-symbols-outlined" style="color: var(--primary);">neurology</span>
-                        Adaptive Learning
-                    </div>
-                    <div class="stat-badge" style="border-left-color: var(--tertiary);">
-                        <span class="material-symbols-outlined" style="color: var(--tertiary);">bolt</span>
-                        Real-Time Results
-                    </div>
-                </div>
+                <h1 class="font-serif-display text-5xl md:text-6xl lg:text-[68px] tracking-tight leading-[1.05] text-[#f3eedc] mb-4 font-normal">
+                    DeepScan <span class="italic text-[#e87a62]">AI</span>
+                </h1>
+                <p class="text-base text-[#a09c8f] max-w-2xl mx-auto leading-relaxed">
+                    Forensic deepfake detection for images, video and audio, with an adaptive neural engine that calibrates from your corrections.
+                </p>
+            </div>
 
-                <div class="upload-card">
-                    <div class="glass-panel" style="padding: 48px;">
-                        <div class="scan-line"></div>
-                        <div class="drop-zone" id="drop-zone">
-                            <div class="drop-zone-icon">
-                                <span class="material-symbols-outlined" style="font-size: 48px; color: var(--primary);">cloud_upload</span>
+            <!-- Asymmetric 12-Column Grid (7 Left / 5 Right) -->
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+                <!-- Left Column (7 Columns): Soft Archival Inspection Panel -->
+                <div class="lg:col-span-7 bg-[#292928] rounded-[20px] p-8 border border-[rgba(227,223,207,0.10)] panel-shadow">
+                    <!-- Dropzone Container -->
+                    <div class="border border-dashed border-[rgba(227,223,207,0.20)] rounded-[16px] bg-[#202020]/60 p-8 text-center transition-colors hover:border-[#e87a62]/60 cursor-pointer mb-6 group" id="drop-zone">
+                        <div class="flex flex-col items-center justify-center">
+                            <div class="w-12 h-12 rounded-full bg-[#202020] flex items-center justify-center mb-3 group-hover:scale-105 transition-transform duration-200 border border-[rgba(227,223,207,0.10)]">
+                                <span class="material-symbols-outlined text-[#a09c8f] group-hover:text-[#f3eedc] transition-colors text-2xl" data-icon="cloud_upload">cloud_upload</span>
                             </div>
-                            <h3 class="headline-md" style="margin-bottom: 8px;">Drag & drop your file here</h3>
-                            <p class="body-lg" style="color: var(--on-surface-variant);">or click to browse local directories</p>
-                            
-                            <div class="format-tags">
-                                <span class="format-tag">JPG</span><span class="format-tag">PNG</span><span class="format-tag">WEBP</span>
-                                <span class="format-tag">BMP</span><span class="format-tag">TIFF</span><span class="format-tag">MP4</span>
-                                <span class="format-tag">AVI</span><span class="format-tag">MOV</span><span class="format-tag">MKV</span>
-                                <span class="format-tag">WEBM</span><span class="format-tag">WAV</span><span class="format-tag">MP3</span>
-                                <span class="format-tag">FLAC</span><span class="format-tag">OGG</span><span class="format-tag">AAC</span>
-                                <span class="format-tag">M4A</span>
-                            </div>
-                            <p style="font-size: 11px; font-family: monospace; color: rgba(186, 202, 193, 0.6);">MAX FILE SIZE: 500 MB</p>
-                            <input type="file" id="file-input" accept=".jpg,.jpeg,.png,.webp,.bmp,.tiff,.mp4,.avi,.mov,.mkv,.webm,.wav,.mp3,.flac,.ogg,.aac,.m4a" hidden>
+                            <p class="text-base text-[#f3eedc] font-medium mb-1" id="drop-title">
+                                Drag &amp; drop your file here
+                            </p>
+                            <p class="text-xs text-[#a09c8f]" id="drop-subtitle">
+                                or click to browse local directories
+                            </p>
+                            <input accept=".jpg,.jpeg,.png,.webp,.bmp,.tiff,.mp4,.avi,.mov,.mkv,.webm,.wav,.mp3,.flac,.ogg,.aac,.m4a" hidden id="file-input" type="file">
                         </div>
+                    </div>
 
-                        <div style="margin-top: 32px; display: flex; flex-direction: column; align-items: center; gap: 24px;">
-                            <button class="btn-primary" id="analyze-btn">Analyze</button>
-                            <a href="#" data-page="batch" style="color: var(--primary); font-size: 12px; font-weight: 600; text-decoration: none; display: flex; align-items: center; gap: 4px;">
-                                <span class="material-symbols-outlined" style="font-size: 16px;">layers</span>Batch Upload
-                            </a>
+                    <!-- Selected Evidence File Manifest Item -->
+                    <div class="hidden bg-[#202020]/80 rounded-[12px] p-4 border border-[rgba(227,223,207,0.10)] flex items-center justify-between mb-5" id="file-manifest-card">
+                        <div class="flex items-center gap-3 overflow-hidden">
+                            <div class="w-9 h-9 rounded-lg bg-[#323231] flex items-center justify-center shrink-0 text-[#e87a62]">
+                                <span class="material-symbols-outlined text-lg" id="manifest-icon" data-icon="description">description</span>
+                            </div>
+                            <div class="truncate">
+                                <p class="font-mono-custom text-xs font-medium text-[#f3eedc] truncate" id="manifest-name">evidence_sample.mp4</p>
+                                <p class="font-mono-custom text-[11px] text-[#a09c8f]" id="manifest-meta">0.0 MB • Ready for analysis</p>
+                            </div>
+                        </div>
+                        <button aria-label="Remove selected file" class="text-[#a09c8f] hover:text-[#e87a62] transition-colors p-1.5 rounded hover:bg-[#323231] shrink-0" onclick="clearSelectedFile()" type="button">
+                            <span class="material-symbols-outlined text-base">close</span>
+                        </button>
+                    </div>
+
+                    <!-- Progress State Indicator -->
+                    <div class="hidden space-y-2 mb-6" id="upload-progress-box">
+                        <div class="flex items-center justify-between font-mono-custom text-xs">
+                            <span class="text-[#a09c8f] flex items-center gap-2">
+                                <span class="material-symbols-outlined animate-spin text-sm text-[#e87a62]" data-icon="sync">sync</span>
+                                Analyzing forensic features…
+                            </span>
+                            <span class="text-[#e87a62] font-medium" id="upload-progress-pct">60%</span>
+                        </div>
+                        <div class="h-[3px] w-full bg-[#202020] rounded-full overflow-hidden">
+                            <div class="h-full bg-[#e87a62] transition-all duration-300 rounded-full" id="upload-progress-bar" style="width: 60%;"></div>
+                        </div>
+                    </div>
+
+                    <!-- Error Alert -->
+                    <div class="hidden bg-[#1b1c1c] border border-red-500/30 rounded-[12px] p-3.5 mb-6 flex items-start gap-3" id="analyze-error-box">
+                        <span class="material-symbols-outlined text-red-400 shrink-0 text-lg mt-0.5">error</span>
+                        <p class="text-xs text-[#cac6bc] leading-relaxed" id="analyze-error-msg">
+                            Unsupported file format or file exceeds 500 MB limit.
+                        </p>
+                    </div>
+
+                    <!-- Primary Action & Secondary Trace Link -->
+                    <div class="flex flex-col sm:flex-row items-center justify-between gap-4 pt-2 border-t border-[rgba(227,223,207,0.10)]">
+                        <button class="w-full sm:w-auto btn-sand" id="analyze-btn" type="button">
+                            <span>Analyze</span>
+                            <span class="material-symbols-outlined text-base" data-icon="arrow_forward">arrow_forward</span>
+                        </button>
+                        <a class="text-[#a09c8f] hover:text-[#f3eedc] text-xs font-mono-custom transition-colors flex items-center gap-1.5 py-2 cursor-pointer" onclick="navigateTo('batch')">
+                            <span>Batch upload</span>
+                            <span class="material-symbols-outlined text-sm" data-icon="east">east</span>
+                        </a>
+                    </div>
+                </div>
+
+                <!-- Right Column (5 Columns): Archival Protocol & Specifications -->
+                <div class="lg:col-span-5 flex flex-col justify-between self-stretch py-2">
+                    <div class="space-y-6">
+                        <!-- Item 01 -->
+                        <div class="pb-6 border-b border-[rgba(227,223,207,0.10)]">
+                            <div class="flex items-baseline gap-3 mb-1.5">
+                                <span class="font-mono-custom text-xs text-[#e87a62] font-semibold">01</span>
+                                <h2 class="text-sm text-[#f3eedc] font-medium tracking-normal">5 analysis modules</h2>
+                            </div>
+                            <p class="text-xs text-[#a09c8f] pl-7 leading-relaxed">
+                                Synchronized visual, facial ELA/texture, spectral, temporal, and GAN frequency artifact scanning.
+                            </p>
+                        </div>
+                        <!-- Item 02 -->
+                        <div class="pb-6 border-b border-[rgba(227,223,207,0.10)]">
+                            <div class="flex items-baseline gap-3 mb-1.5">
+                                <span class="font-mono-custom text-xs text-[#e87a62] font-semibold">02</span>
+                                <h2 class="text-sm text-[#f3eedc] font-medium tracking-normal">Adaptive learning</h2>
+                            </div>
+                            <p class="text-xs text-[#a09c8f] pl-7 leading-relaxed">
+                                Human feedback continuously tunes module weights, pattern memory, and threshold calibration drift.
+                            </p>
+                        </div>
+                        <!-- Item 03 -->
+                        <div class="pb-6 border-b border-[rgba(227,223,207,0.10)]">
+                            <div class="flex items-baseline gap-3 mb-1.5">
+                                <span class="font-mono-custom text-xs text-[#e87a62] font-semibold">03</span>
+                                <h2 class="text-sm text-[#f3eedc] font-medium tracking-normal">Real-time results</h2>
+                            </div>
+                            <p class="text-xs text-[#a09c8f] pl-7 leading-relaxed">
+                                Sub-second multi-modal inference with outlier weighting and cryptographic integrity digests.
+                            </p>
+                        </div>
+                    </div>
+
+                    <!-- Supported Formats Matrix -->
+                    <div class="pt-6">
+                        <div class="flex items-center justify-between mb-3">
+                            <span class="font-mono-custom text-[11px] uppercase tracking-wider text-[#a09c8f] font-medium">Supported formats</span>
+                            <span class="font-mono-custom text-[11px] text-[#e87a62]">Max file size: 500 MB</span>
+                        </div>
+                        <div class="font-mono-custom text-[11px] text-[#a09c8f]/90 leading-relaxed bg-[#202020]/40 p-3.5 rounded-lg border border-[rgba(227,223,207,0.10)]">
+                            JPG, PNG, WEBP, BMP, TIFF, MP4, AVI, MOV, MKV, WEBM, WAV, MP3, FLAC, OGG, AAC, M4A
+                        </div>
+                        <div class="mt-4 flex items-center gap-2 text-[#a09c8f]/70 text-xs font-mono-custom">
+                            <span class="material-symbols-outlined text-sm" data-icon="lock">lock</span>
+                            <span>Client-side SHA-256 pre-verification enabled</span>
                         </div>
                     </div>
                 </div>
             </div>
         </section>
 
-        <!-- SECTION: RESULTS -->
+        <!-- ═══════════════════════════════════════════════
+             SECTION: RESULTS
+             ═══════════════════════════════════════════════ -->
         <section class="page-section" id="page-results">
-            <div class="results-header">
-                <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
-                    <span class="material-symbols-outlined" style="color: var(--primary-container);">video_file</span>
-                    <span class="label-md" style="color: var(--on-surface-variant); letter-spacing: 0.1em;">Analysis Complete</span>
+            <!-- Top Action Breadcrumb & Session Meta -->
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
+                <a class="inline-flex items-center gap-1.5 text-xs font-mono-custom text-[#a09c8f] hover:text-[#f3eedc] transition-colors cursor-pointer group" onclick="navigateTo('upload')">
+                    <span class="transition-transform group-hover:-translate-x-1">←</span>
+                    <span>Back to Analyze</span>
+                </a>
+                <div class="flex items-center gap-3">
+                    <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-[#292928] border border-[rgba(227,223,207,0.10)] text-xs font-mono-custom text-[#a09c8f]">
+                        <span class="w-1.5 h-1.5 rounded-full bg-[#e87a62]"></span>
+                        Analysis complete
+                    </span>
+                    <span class="font-mono-custom text-xs text-[#a09c8f] bg-[#202020] px-2.5 py-1 rounded border border-[rgba(227,223,207,0.10)]" id="result-filename">
+                        evidence_sample.mp4
+                    </span>
                 </div>
-                <h1 id="result-filename" class="headline-lg">Awaiting Analysis...</h1>
-                <span class="verdict-badge" id="result-verdict">—</span>
             </div>
 
-            <div class="bento-grid">
-                <!-- Gauge -->
-                <div class="bento-col-4 glass-panel" style="padding: 24px; display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative; overflow: hidden;">
-                    <div class="scan-line"></div>
-                    <h3 class="title-md" style="color: var(--on-surface-variant); margin-bottom: 32px;">Probability Index</h3>
-                    <div class="radial-gauge" id="gauge" style="background: conic-gradient(#2f353c 0%, #2f353c 100%);">
-                        <div style="display: flex; flex-direction: column; align-items: center;">
-                            <span id="gauge-value" class="headline-lg">—</span>
-                            <span class="label-md" style="color: var(--on-surface-variant);">Probability</span>
+            <!-- Centered Editorial Title Section -->
+            <div class="text-center max-w-2xl mx-auto mb-12">
+                <h1 class="font-serif-display text-4xl sm:text-5xl md:text-6xl text-[#f3eedc] tracking-tight leading-none mb-3" id="result-headline">
+                    Likely <span class="italic text-[#e87a62]">deepfake</span>
+                </h1>
+                <p class="text-sm text-[#a09c8f] leading-relaxed max-w-lg mx-auto" id="result-subheadline">
+                    Forensic inference detected multi-modal manipulation across synchronized acoustic and spatial features.
+                </p>
+            </div>
+
+            <!-- Asymmetric 12-Column Grid Layout -->
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+                <!-- Probability Index (5 cols) -->
+                <div class="lg:col-span-5 soft-panel rounded-[20px] p-7 md:p-8 flex flex-col items-center justify-between text-center min-h-[420px]">
+                    <div class="w-full flex items-center justify-between mb-4">
+                        <span class="text-xs font-mono-custom text-[#a09c8f] tracking-wider uppercase">Probability index</span>
+                        <span class="material-symbols-outlined text-[#a09c8f] text-base" data-icon="troubleshoot">troubleshoot</span>
+                    </div>
+
+                    <!-- Radial SVG Gauge -->
+                    <div class="relative w-48 h-48 my-2 flex items-center justify-center">
+                        <svg class="w-full h-full -rotate-90" viewBox="0 0 160 160">
+                            <!-- Background Track -->
+                            <circle cx="80" cy="80" fill="transparent" r="66" stroke="rgba(227, 223, 207, 0.08)" stroke-width="6"></circle>
+                            <!-- Animated Gauge Stroke -->
+                            <circle class="radial-gauge-circle" cx="80" cy="80" fill="transparent" id="gauge-circle" r="66" stroke="#e87a62" stroke-dasharray="414.69" stroke-dashoffset="52" stroke-linecap="round" stroke-width="6"></circle>
+                        </svg>
+                        <div class="absolute inset-0 flex flex-col items-center justify-center">
+                            <span class="font-mono-custom text-3xl font-semibold tracking-tight text-[#f3eedc] font-tabular" id="result-prob-pct">87.3%</span>
+                            <span class="text-xs text-[#a09c8f] mt-0.5">Probability</span>
                         </div>
                     </div>
-                    <div style="margin-top: 32px; text-align: center;">
-                        <span class="body-sm" style="color: var(--on-surface-variant); display: block;">Verdict Severity</span>
-                        <span id="gauge-severity" class="headline-md" style="font-weight: 700;">—</span>
+
+                    <!-- Severity Verdict Tag & Forensic Context -->
+                    <div class="w-full mt-4 flex flex-col items-center gap-2">
+                        <span class="verdict-tag deepfake text-xs" id="result-verdict-badge">DEEPFAKE</span>
+                        <p class="text-xs text-[#a09c8f] max-w-xs mt-1" id="result-verdict-explanation">
+                            Exceeds critical threshold for automated classification.
+                        </p>
                     </div>
                 </div>
 
-                <!-- Confidence & Performance -->
-                <div class="bento-col-8" style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px;">
-                    <div class="glass-panel" style="padding: 24px;">
-                        <h3 class="title-md" style="margin-bottom: 24px; display: flex; align-items: center; gap: 8px;">
-                            <span class="material-symbols-outlined" style="color: var(--primary);">equalizer</span>
-                            Confidence Score
-                        </h3>
-                        <div style="display: flex; justify-content: space-between; margin-bottom: 8px;" class="label-md">
-                            <span>Model Certainty</span>
-                            <span id="confidence-value">—</span>
+                <!-- Engine & Confidence (7 cols) -->
+                <div class="lg:col-span-7 soft-panel rounded-[20px] divide-y divide-[rgba(227,223,207,0.08)] flex flex-col justify-between">
+                    <!-- Confidence Block -->
+                    <div class="p-7 md:p-8">
+                        <div class="flex items-center justify-between mb-4">
+                            <h2 class="text-xs font-mono-custom text-[#a09c8f] uppercase tracking-wider">Confidence score</h2>
+                            <span class="font-mono-custom text-xs text-[#f3eedc]/70" id="result-eval-id">EVAL_ID: DS-REALTIME</span>
                         </div>
-                        <div class="progress-bar-track">
-                            <div class="progress-bar-fill" id="confidence-bar" style="background: linear-gradient(to right, var(--secondary-container), var(--primary-container)); width: 0%;"></div>
-                        </div>
-                        <div style="border-top: 1px solid rgba(255,255,255,0.1); padding-top: 16px; margin-top: 24px; display: flex; justify-content: space-between;">
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-6 items-end">
                             <div>
-                                <div class="label-md" style="color: var(--on-surface-variant); margin-bottom: 4px;">Manipulation Type</div>
-                                <span id="manipulation-type" style="padding: 4px 8px; background: rgba(76,214,251,0.1); color: var(--secondary); border: 1px solid rgba(76,214,251,0.2); border-radius: 4px; font-size: 13px; font-family: monospace;">—</span>
+                                <span class="text-xs text-[#a09c8f] block mb-1">Model certainty</span>
+                                <div class="font-mono-custom text-2xl md:text-3xl font-medium text-[#f3eedc] font-tabular tracking-tight" id="result-confidence-val">
+                                    94.2%
+                                </div>
                             </div>
-                            <div style="text-align: right;">
-                                <div class="label-md" style="color: var(--on-surface-variant); margin-bottom: 4px;">Hash Signature</div>
-                                <span id="file-hash" style="font-size: 13px; font-family: monospace;">—</span>
+                            <div>
+                                <span class="text-xs text-[#a09c8f] block mb-1.5">Manipulation taxonomy</span>
+                                <div class="inline-block px-2.5 py-1 rounded bg-[#202020] border border-[rgba(227,223,207,0.10)] font-mono-custom text-xs text-[#f3eedc]" id="result-manip-type">
+                                    face_swap
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Hash Signature -->
+                        <div class="mt-6 pt-4 border-t border-[rgba(227,223,207,0.08)] flex flex-wrap items-center justify-between gap-2">
+                            <span class="text-xs text-[#a09c8f] font-mono-custom">SHA-256 Digest</span>
+                            <div class="flex items-center gap-2 bg-[#202020] px-3 py-1.5 rounded border border-[rgba(227,223,207,0.10)]">
+                                <span class="font-mono-custom text-xs text-[#f3eedc] select-all truncate max-w-[280px]" id="result-file-hash">9f3a8b21...c7e14a90</span>
+                                <button class="text-[#a09c8f] hover:text-[#f3eedc] transition-colors flex items-center" onclick="copyResultHash()" title="Copy digest">
+                                    <span class="material-symbols-outlined text-sm">content_copy</span>
+                                </button>
                             </div>
                         </div>
                     </div>
-                    
-                    <div class="glass-panel" style="padding: 24px;">
-                        <h3 class="title-md" style="margin-bottom: 24px; display: flex; align-items: center; gap: 8px;">
-                            <span class="material-symbols-outlined" style="color: var(--tertiary);">speed</span>
-                            Engine Performance
-                        </h3>
-                        <div style="display: flex; gap: 24px; margin-bottom: 24px;">
-                            <div>
-                                <span id="processing-time" class="headline-md" style="color: var(--tertiary); display: block;">—</span>
-                                <span class="label-md" style="color: var(--on-surface-variant);">LATENCY</span>
+
+                    <!-- Performance & Detection Flags -->
+                    <div class="p-7 md:p-8 bg-[#242423]/50 rounded-b-[20px]">
+                        <div class="flex items-center justify-between mb-4">
+                            <h2 class="text-xs font-mono-custom text-[#a09c8f] uppercase tracking-wider">Engine telemetry</h2>
+                            <div class="flex items-center gap-4 font-mono-custom text-xs text-[#a09c8f]">
+                                <span>Latency: <span class="text-[#f3eedc] font-tabular" id="result-latency">412 ms</span></span>
                             </div>
-                            <div style="width: 1px; background: rgba(255,255,255,0.1);"></div>
-                            <div>
-                                <span class="headline-md" style="display: block;">10 FPS</span>
-                                <span class="label-md" style="color: var(--on-surface-variant);">STREAM RATE</span>
-                            </div>
+                        </div>
+                        <div class="space-y-2" id="result-flags-container">
+                            <!-- Dynamic Flags inserted here -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Multi-modal Breakdown (7 cols) -->
+                <div class="lg:col-span-7 soft-panel rounded-[20px] p-7 md:p-8">
+                    <div class="flex items-center justify-between mb-6 pb-3 border-b border-[rgba(227,223,207,0.08)]">
+                        <div>
+                            <h2 class="text-base text-[#f3eedc] font-medium tracking-tight">Multi-modal breakdown</h2>
+                            <p class="text-xs text-[#a09c8f] mt-0.5">Confidence indices aggregated across isolated forensic neural decoders</p>
+                        </div>
+                        <span class="font-mono-custom text-xs text-[#a09c8f]" id="result-model-count">5 Models</span>
+                    </div>
+                    <div class="space-y-5" id="result-scores-container">
+                        <!-- Module Score Bars inserted here -->
+                    </div>
+                </div>
+
+                <!-- Forensic Findings & Actions (5 cols) -->
+                <div class="lg:col-span-5 soft-panel rounded-[20px] p-7 md:p-8 flex flex-col justify-between">
+                    <div>
+                        <div class="flex items-center justify-between mb-6 pb-3 border-b border-[rgba(227,223,207,0.08)]">
+                            <h2 class="text-base text-[#f3eedc] font-medium tracking-tight">Forensic findings</h2>
+                            <span class="material-symbols-outlined text-[#e87a62] text-sm">fingerprint</span>
+                        </div>
+                        <div class="space-y-3" id="result-findings-list">
+                            <!-- Findings Cards inserted here -->
+                        </div>
+                    </div>
+
+                    <div class="mt-8 pt-6 border-t border-[rgba(227,223,207,0.08)] flex flex-col gap-3">
+                        <button class="w-full btn-sand" onclick="navigateTo('upload')">
+                            Analyze Another File
+                        </button>
+                        <button class="w-full btn-outline" onclick="navigateTo('feedback')">
+                            Submit Feedback / Correction
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ═══════════════════════════════════════════════
+             SECTION: BATCH ANALYSIS
+             ═══════════════════════════════════════════════ -->
+        <section class="page-section" id="page-batch">
+            <div class="text-center max-w-2xl mx-auto mb-10">
+                <h1 class="font-serif-display text-[46px] md:text-[54px] leading-tight text-[#f3eedc] font-normal tracking-tight">
+                    Batch <span class="italic text-[#e87a62]">analysis</span>
+                </h1>
+                <p class="mt-2 text-sm text-[#a09c8f]">
+                    Upload multiple files for simultaneous multi-modal forensic inspection.
+                </p>
+            </div>
+
+            <!-- Ingestion Dock & Active Queue -->
+            <div class="bg-[#292928] border border-[rgba(227,223,207,0.10)] rounded-[20px] p-7 md:p-8 panel-shadow mb-8">
+                <!-- Dropzone -->
+                <div class="border border-dashed border-[rgba(227,223,207,0.20)] hover:border-[#e87a62]/60 hover:bg-[#323231]/50 rounded-[14px] p-8 md:p-10 text-center transition-all duration-200 cursor-pointer bg-[#202020]/40 flex flex-col items-center justify-center" id="batch-dropzone">
+                    <div class="w-12 h-12 rounded-xl bg-[#202020] border border-[rgba(227,223,207,0.12)] flex items-center justify-center text-[#f3eedc] mb-3">
+                        <span class="material-symbols-outlined text-2xl text-[#d6d2c0]" data-icon="cloud_upload">cloud_upload</span>
+                    </div>
+                    <p class="text-base text-[#f3eedc] font-medium" id="batch-drop-title">
+                        Drop multiple files here <span class="text-[#a09c8f] font-normal">or</span> <span class="text-[#e87a62] underline underline-offset-4">browse local files</span>
+                    </p>
+                    <p class="text-xs text-[#a09c8f] mt-1.5 font-light">
+                        Analyzes files sequentially preserving EXIF data, spectral channels, and frame timing
+                    </p>
+                    <input accept=".jpg,.jpeg,.png,.webp,.bmp,.tiff,.mp4,.avi,.mov,.mkv,.webm,.wav,.mp3,.flac,.ogg,.aac,.m4a" hidden id="batch-file-input" multiple type="file">
+                </div>
+
+                <!-- Queue Status & Actions -->
+                <div class="mt-6 pt-5 border-t border-[rgba(227,223,207,0.08)] flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    <div class="flex items-center gap-3">
+                        <div class="w-8 h-8 rounded-lg bg-[#202020] border border-[rgba(227,223,207,0.08)] flex items-center justify-center text-[#a09c8f]">
+                            <span class="material-symbols-outlined text-base">folder_zip</span>
                         </div>
                         <div>
-                            <div class="label-md" style="color: var(--on-surface-variant); margin-bottom: 8px;">Detection Flags</div>
-                            <div id="flags-container" style="display: flex; flex-wrap: wrap; gap: 8px;"></div>
+                            <div class="flex items-center gap-2">
+                                <span class="text-sm font-medium text-[#f3eedc]" id="batch-queue-count">0 files queued</span>
+                                <span class="text-[#a09c8f] text-xs">•</span>
+                                <span class="font-mono-custom text-xs text-[#a09c8f]" id="batch-queue-size">0.0 MB total</span>
+                            </div>
                         </div>
                     </div>
-                </div>
-
-                <!-- Scores Breakdown -->
-                <div class="bento-col-7 glass-panel" style="padding: 24px;">
-                    <h3 class="title-md" style="margin-bottom: 24px; display: flex; align-items: center; gap: 8px;">
-                        <span class="material-symbols-outlined" style="color: var(--primary);">schema</span>
-                        Multi-Modal Breakdown
-                    </h3>
-                    <div id="module-scores-container"></div>
-                </div>
-
-                <!-- Findings -->
-                <div class="bento-col-5 glass-panel" style="padding: 24px; display: flex; flex-direction: column;">
-                    <h3 class="title-md" style="margin-bottom: 24px; display: flex; align-items: center; gap: 8px;">
-                        <span class="material-symbols-outlined" style="color: var(--primary);">fingerprint</span>
-                        Forensic Findings
-                    </h3>
-                    <div id="findings-container"></div>
-                    
-                    <div style="margin-top: auto; padding-top: 24px; display: flex; flex-direction: column; gap: 12px;">
-                        <button class="btn-primary" style="width: 100%;" onclick="navigateTo('upload')">Analyze Another File</button>
-                        <button class="btn-outline" style="width: 100%;" onclick="navigateTo('feedback')">Submit Feedback</button>
+                    <div class="flex items-center gap-3">
+                        <button class="btn-outline text-xs" onclick="clearBatchQueue()" type="button">
+                            <span class="material-symbols-outlined text-sm">delete_sweep</span>
+                            Clear queue
+                        </button>
+                        <button class="btn-sand" id="batch-analyze-btn" type="button">
+                            <span>Analyze batch</span>
+                            <span class="material-symbols-outlined text-base">arrow_forward</span>
+                        </button>
                     </div>
                 </div>
-            </div>
-        </section>
 
-        <!-- SECTION: BATCH -->
-        <section class="page-section" id="page-batch">
-            <h1 class="headline-lg" style="margin-bottom: 8px;">Batch Analysis</h1>
-            <p class="body-lg" style="color: var(--on-surface-variant); margin-bottom: 32px;">Upload multiple files for simultaneous forensic analysis.</p>
-
-            <div class="glass-panel" style="padding: 32px; margin-bottom: 32px;">
-                <div class="drop-zone" id="batch-drop-zone">
-                    <div class="drop-zone-icon">
-                        <span class="material-symbols-outlined" style="font-size: 48px; color: var(--primary);">drive_folder_upload</span>
-                    </div>
-                    <h3 class="headline-md" style="margin-bottom: 8px;">Drop multiple files here</h3>
-                    <p class="body-lg" style="color: var(--on-surface-variant);">or click to browse</p>
-                    <input type="file" id="batch-file-input" multiple accept=".jpg,.jpeg,.png,.webp,.bmp,.tiff,.mp4,.avi,.mov,.mkv,.webm,.wav,.mp3,.flac,.ogg,.aac,.m4a" hidden>
-                </div>
-                <div style="margin-top: 24px; text-align: center;">
-                    <button class="btn-primary" id="batch-analyze-btn">Analyze Batch</button>
+                <!-- Queued file chips preview -->
+                <div class="mt-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5" id="batch-chips-container">
+                    <!-- Dynamic chips -->
                 </div>
             </div>
 
-            <div class="glass-panel" id="batch-results-panel" style="padding: 24px; display: none;">
-                <h3 class="title-md" style="margin-bottom: 16px;">Batch Results</h3>
-                <div style="overflow-x: auto;">
-                    <table class="batch-table">
+            <!-- Results Table -->
+            <div class="hidden bg-[#292928] border border-[rgba(227,223,207,0.10)] rounded-[20px] p-7 panel-shadow" id="batch-results-panel">
+                <div class="flex items-center justify-between mb-6 pb-3 border-b border-[rgba(227,223,207,0.08)]">
+                    <h2 class="text-base text-[#f3eedc] font-medium tracking-tight">Batch Results Manifest</h2>
+                    <span class="font-mono-custom text-xs text-[#a09c8f]" id="batch-summary-badge">0 / 0 analyzed</span>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left font-mono-custom text-xs">
                         <thead>
-                            <tr>
-                                <th>#</th>
-                                <th>Filename</th>
-                                <th>Media Type</th>
-                                <th>Verdict</th>
-                                <th>Probability</th>
-                                <th>Confidence</th>
-                                <th>Time (ms)</th>
+                            <tr class="border-b border-[rgba(227,223,207,0.10)] text-[#a09c8f]">
+                                <th class="pb-3 px-3">#</th>
+                                <th class="pb-3 px-3">Filename</th>
+                                <th class="pb-3 px-3">Media</th>
+                                <th class="pb-3 px-3">Verdict</th>
+                                <th class="pb-3 px-3 text-right">Probability</th>
+                                <th class="pb-3 px-3 text-right">Confidence</th>
+                                <th class="pb-3 px-3 text-right">Latency</th>
                             </tr>
                         </thead>
-                        <tbody id="batch-results-body"></tbody>
+                        <tbody class="divide-y divide-[rgba(227,223,207,0.05)] text-[#f3eedc]" id="batch-results-body">
+                            <!-- Table rows -->
+                        </tbody>
                     </table>
                 </div>
-                <div class="batch-summary" id="batch-summary" style="display: none;"></div>
+                <!-- Summary Card -->
+                <div class="mt-6 p-4 rounded-xl bg-[#202020] border border-[rgba(227,223,207,0.08)] font-mono-custom text-xs text-[#cac6bc] flex flex-wrap justify-between gap-4" id="batch-summary-metrics">
+                    <!-- Summary metrics -->
+                </div>
             </div>
         </section>
 
-        <!-- SECTION: FEEDBACK -->
+        <!-- ═══════════════════════════════════════════════
+             SECTION: FEEDBACK / CALIBRATION
+             ═══════════════════════════════════════════════ -->
         <section class="page-section" id="page-feedback">
-            <h1 class="headline-lg" style="margin-bottom: 8px;">Correct This Detection</h1>
-            <p class="body-lg" style="color: var(--on-surface-variant); margin-bottom: 32px;">Help our AI learn by providing your feedback on this result.</p>
+            <div class="text-center mb-10 max-w-2xl mx-auto">
+                <div class="inline-flex items-center gap-2 px-3 py-1 rounded mb-4 bg-[#292928] border border-[rgba(227,223,207,0.10)] text-[#a09c8f] font-mono-custom text-[11px]">
+                    <span class="material-symbols-outlined text-xs text-[#e87a62]" data-icon="terminal">terminal</span>
+                    <span>HUMAN-IN-THE-LOOP FORENSIC PROTOCOL · STAGE 03</span>
+                </div>
+                <h1 class="font-serif-display text-[42px] leading-[48px] md:text-[52px] md:leading-[58px] tracking-tight text-[#f3eedc] mb-3">
+                    Correct this <span class="italic font-normal text-[#e87a62]">detection</span>
+                </h1>
+                <p class="text-sm text-[#a09c8f] max-w-lg mx-auto">
+                    Help our AI learn by providing your feedback on this result. Every annotated file calibrates weights across neural verification passes.
+                </p>
+            </div>
 
-            <div class="glass-panel" style="padding: 32px;">
-                <form id="feedback-form">
-                    <div class="form-grid">
-                        <div class="form-group">
-                            <label class="form-label">File Hash</label>
-                            <input type="text" class="form-input" id="fb-hash" readonly placeholder="Analyze a file first">
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start mb-12">
+                <!-- 8-Column Model Calibration Form -->
+                <div class="lg:col-span-8 bg-[#292928] rounded-[20px] p-8 border border-[rgba(227,223,207,0.10)] panel-shadow">
+                    <div class="flex items-center justify-between pb-6 border-b border-[rgba(227,223,207,0.08)] mb-7">
+                        <div class="flex items-center gap-2.5">
+                            <span class="material-symbols-outlined text-[#e87a62] text-lg">policy</span>
+                            <span class="font-mono-custom text-xs uppercase tracking-wider text-[#f3eedc] font-medium">Model Calibration Form</span>
                         </div>
-                        <div class="form-group">
-                            <label class="form-label">Media Type</label>
-                            <select class="form-select" id="fb-media-type">
-                                <option value="image">image</option>
-                                <option value="video">video</option>
-                                <option value="audio">audio</option>
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <label class="form-label">Original Verdict</label>
-                            <input type="text" class="form-input" id="fb-original-verdict" readonly placeholder="—">
-                        </div>
-                        <div class="form-group">
-                            <label class="form-label">Manipulation Type</label>
-                            <select class="form-select" id="fb-manipulation-type">
-                                <option value="unknown">unknown</option>
-                                <option value="face_swap">face_swap</option>
-                                <option value="face_reenactment">face_reenactment</option>
-                                <option value="lip_sync">lip_sync</option>
-                                <option value="full_synthesis">full_synthesis</option>
-                                <option value="voice_clone">voice_clone</option>
-                                <option value="text_to_speech">text_to_speech</option>
-                            </select>
-                        </div>
-                        <div class="form-group full-width">
-                            <label class="form-label">Corrected Verdict</label>
-                            <div class="toggle-cards">
-                                <div class="toggle-card" id="toggle-authentic" onclick="selectVerdict('authentic')">
-                                    <span class="material-symbols-outlined" style="color: #22c55e; font-size: 36px;">verified_user</span>
-                                    <p style="font-weight: 600; margin-top: 8px;">Authentic</p>
-                                    <p style="font-size: 12px; color: var(--on-surface-variant);">This file is real</p>
+                        <span class="text-xs font-mono-custom text-[#a09c8f]">CASE_ID: #DSC-CALIBRATION</span>
+                    </div>
+
+                    <form id="feedback-form" class="space-y-6">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <!-- Field 1: File hash -->
+                            <div>
+                                <label class="block font-mono-custom text-xs text-[#a09c8f] uppercase tracking-wider mb-2">File hash</label>
+                                <div class="relative flex items-center h-12 bg-[#1c1c1b] rounded-[10px] border border-[rgba(227,223,207,0.10)] px-3.5 focus-within:ring-1 focus-within:ring-[#e87a62]">
+                                    <span class="material-symbols-outlined text-[#a09c8f] text-[18px] mr-2.5">lock</span>
+                                    <input class="w-full bg-transparent border-0 p-0 font-mono-custom text-xs text-[#f3eedc] select-all focus:ring-0 truncate" id="fb-hash" placeholder="Analyze a file first" readonly type="text">
                                 </div>
-                                <div class="toggle-card" id="toggle-deepfake" onclick="selectVerdict('deepfake')">
-                                    <span class="material-symbols-outlined" style="color: var(--error); font-size: 36px;">warning</span>
-                                    <p style="font-weight: 600; margin-top: 8px;">Deepfake</p>
-                                    <p style="font-size: 12px; color: var(--on-surface-variant);">This file is manipulated</p>
+                            </div>
+
+                            <!-- Field 2: Media type -->
+                            <div>
+                                <label class="block font-mono-custom text-xs text-[#a09c8f] uppercase tracking-wider mb-2">Media type</label>
+                                <select class="w-full h-12 bg-[#202020] rounded-[10px] border border-[rgba(227,223,207,0.10)] px-4 text-[#f3eedc] text-sm focus:outline-none focus:ring-1 focus:ring-[#e87a62]" id="fb-media-type">
+                                    <option value="image">Image (PNG, JPEG, WEBP)</option>
+                                    <option value="video">Video (MP4, MKV, MOV)</option>
+                                    <option value="audio">Audio (FLAC, WAV, MP3)</option>
+                                </select>
+                            </div>
+
+                            <!-- Field 3: Original verdict -->
+                            <div>
+                                <label class="block font-mono-custom text-xs text-[#a09c8f] uppercase tracking-wider mb-2">Original verdict</label>
+                                <input class="w-full h-12 bg-[#1c1c1b] rounded-[10px] border border-[rgba(227,223,207,0.10)] px-4 text-[#f3eedc] font-mono-custom text-xs select-all focus:ring-0" id="fb-original-verdict" readonly type="text" value="—">
+                            </div>
+
+                            <!-- Field 4: Manipulation type -->
+                            <div>
+                                <label class="block font-mono-custom text-xs text-[#a09c8f] uppercase tracking-wider mb-2">Manipulation type</label>
+                                <select class="w-full h-12 bg-[#202020] rounded-[10px] border border-[rgba(227,223,207,0.10)] px-4 text-[#f3eedc] text-sm focus:outline-none focus:ring-1 focus:ring-[#e87a62]" id="fb-manipulation-type">
+                                    <option value="face_swap">face_swap (Identity replacement)</option>
+                                    <option value="face_reenactment">face_reenactment (Motion driving)</option>
+                                    <option value="lip_sync">lip_sync (Wav2Lip / Audio guided)</option>
+                                    <option value="full_synthesis">full_synthesis (Diffusion / GAN)</option>
+                                    <option value="voice_clone">voice_clone (Acoustic timbre)</option>
+                                    <option value="text_to_speech">text_to_speech (Neural speech)</option>
+                                    <option value="unknown">unknown (Unspecified anomaly)</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- Corrected Verdict Selection -->
+                        <div>
+                            <label class="block font-mono-custom text-xs text-[#a09c8f] uppercase tracking-wider mb-3">Ground Truth Verification (Corrected Verdict)</label>
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                <button class="h-12 rounded-[10px] border border-[rgba(227,223,207,0.10)] bg-[#202020] hover:bg-[#263026] text-[#cac6bc] hover:text-[#9db894] font-mono-custom text-xs flex items-center justify-center gap-2 transition-all cursor-pointer" id="toggle-authentic" onclick="selectVerdict('authentic')" type="button">
+                                    <span class="w-2 h-2 rounded-full bg-[#9db894]"></span>
+                                    <span>Verified Authentic</span>
+                                </button>
+                                <button class="h-12 rounded-[10px] border border-[rgba(227,223,207,0.10)] bg-[#202020] hover:bg-[#3a2621] text-[#cac6bc] hover:text-[#f0937f] font-mono-custom text-xs flex items-center justify-center gap-2 transition-all cursor-pointer" id="toggle-deepfake" onclick="selectVerdict('deepfake')" type="button">
+                                    <span class="w-2 h-2 rounded-full bg-[#f0937f]"></span>
+                                    <span>Confirmed Deepfake</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Submit Button -->
+                        <div class="pt-4 border-t border-[rgba(227,223,207,0.08)] flex justify-end">
+                            <button class="btn-sand" type="submit">
+                                <span>Submit Calibration Record</span>
+                                <span class="material-symbols-outlined text-base">send</span>
+                            </button>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- 4-Column Calibration Protocol Card -->
+                <div class="lg:col-span-4 soft-panel rounded-[20px] p-7 flex flex-col gap-5">
+                    <h2 class="text-sm font-medium text-[#f3eedc]">Bayesian Calibration Protocol</h2>
+                    <p class="text-xs text-[#a09c8f] leading-relaxed">
+                        Human analyst corrections directly influence the Bayesian ground-truth weighting engine.
+                    </p>
+                    <div class="space-y-4 pt-2 border-t border-[rgba(227,223,207,0.08)] text-xs text-[#cac6bc]">
+                        <div class="flex items-start gap-2.5">
+                            <span class="material-symbols-outlined text-[#e87a62] text-sm mt-0.5">verified_user</span>
+                            <p>HMAC-signed session logs prevent adversarial poisoning attacks.</p>
+                        </div>
+                        <div class="flex items-start gap-2.5">
+                            <span class="material-symbols-outlined text-[#e87a62] text-sm mt-0.5">auto_mode</span>
+                            <p>Threshold adjustments re-converge dynamically as sample count exceeds minimum batch size.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ═══════════════════════════════════════════════
+             SECTION: ADAPTIVE LEARNING
+             ═══════════════════════════════════════════════ -->
+        <section class="page-section" id="page-learning">
+            <div class="text-center flex flex-col items-center justify-center space-y-3 mb-10">
+                <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-[rgba(227,223,207,0.10)] bg-[#262625]/80">
+                    <span class="w-1.5 h-1.5 rounded-full bg-[#e87a62]"></span>
+                    <span class="font-mono-custom text-[11px] uppercase tracking-wider text-[#cac6bc]">V4.0 human-in-the-loop continuous calibration</span>
+                </div>
+                <h1 class="font-serif-display text-4xl sm:text-5xl md:text-[52px] leading-tight text-[#f3eedc] font-normal">
+                    Adaptive <span class="italic text-[#e87a62]">learning</span> status
+                </h1>
+                <p class="text-sm text-[#a09c8f] max-w-2xl text-center leading-relaxed font-normal">
+                    Autonomous threshold calibration driven by verified analyst corrections and pattern memory.
+                </p>
+            </div>
+
+            <!-- Four Key Metrics Row -->
+            <div class="w-full border border-[rgba(227,223,207,0.10)] rounded-xl py-6 px-4 sm:px-8 bg-[#202020]/60 backdrop-blur-sm grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 lg:gap-0 mb-10">
+                <div class="flex flex-col items-center lg:items-start text-center lg:text-left lg:px-6 lg:border-r border-[rgba(227,223,207,0.10)]">
+                    <div class="font-mono-custom text-3xl font-medium text-[#f3eedc]" id="lr-feedback">0</div>
+                    <div class="text-xs text-[#a09c8f] mt-1 font-medium">Feedback records</div>
+                    <div class="font-mono-custom text-[11px] text-[#cac6bc]/70 mt-1">Ground truth verified</div>
+                </div>
+                <div class="flex flex-col items-center lg:items-start text-center lg:text-left lg:px-6 lg:border-r border-[rgba(227,223,207,0.10)]">
+                    <div class="font-mono-custom text-3xl font-medium text-[#f3eedc]" id="lr-patterns">0</div>
+                    <div class="text-xs text-[#a09c8f] mt-1 font-medium">Stored patterns</div>
+                    <div class="font-mono-custom text-[11px] text-[#cac6bc]/70 mt-1">Multi-modal fingerprints</div>
+                </div>
+                <div class="flex flex-col items-center lg:items-start text-center lg:text-left lg:px-6 lg:border-r border-[rgba(227,223,207,0.10)]">
+                    <div class="flex items-center gap-2">
+                        <span class="w-2.5 h-2.5 rounded-full bg-[#9db894] inline-block" id="lr-ready-dot"></span>
+                        <div class="font-mono-custom text-3xl font-medium text-[#9db894]" id="lr-ready">No</div>
+                    </div>
+                    <div class="text-xs text-[#a09c8f] mt-1 font-medium">Classifier ready <span id="lr-accuracy"></span></div>
+                    <div class="font-mono-custom text-[11px] text-[#cac6bc]/70 mt-1">Bayesian convergence</div>
+                </div>
+                <div class="flex flex-col items-center lg:items-start text-center lg:text-left lg:px-6">
+                    <div class="font-mono-custom text-3xl font-medium text-[#f3eedc]" id="lr-adjusted">0</div>
+                    <div class="text-xs text-[#a09c8f] mt-1 font-medium">Modules adjusted</div>
+                    <div class="font-mono-custom text-[11px] text-[#cac6bc]/70 mt-1">Dynamic weight shift</div>
+                </div>
+            </div>
+
+            <!-- Calibration Adjustments Table -->
+            <div class="soft-panel rounded-[20px] p-7 md:p-8 mb-6">
+                <div class="flex items-center justify-between mb-6 pb-3 border-b border-[rgba(227,223,207,0.08)]">
+                    <h2 class="text-base text-[#f3eedc] font-medium tracking-tight">Adaptive Module Thresholds</h2>
+                    <button class="btn-sand text-xs py-2 px-4" id="retrain-btn">Force Retrain</button>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left font-mono-custom text-xs">
+                        <thead>
+                            <tr class="border-b border-[rgba(227,223,207,0.10)] text-[#a09c8f]">
+                                <th class="pb-3 px-3">Module</th>
+                                <th class="pb-3 px-3">Authentic Samples</th>
+                                <th class="pb-3 px-3">Deepfake Samples</th>
+                                <th class="pb-3 px-3 text-right">Threshold Drift</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-[rgba(227,223,207,0.05)] text-[#f3eedc]" id="threshold-table-body">
+                            <!-- Dynamic rows -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- ═══════════════════════════════════════════════
+             SECTION: HYPERPARAMETER TUNING
+             ═══════════════════════════════════════════════ -->
+        <section class="page-section" id="page-tuning">
+            <div class="text-center max-w-2xl mx-auto mb-10">
+                <h1 class="font-serif-display text-[46px] md:text-[54px] leading-tight text-[#f3eedc] font-normal tracking-tight">
+                    Hyperparameter <span class="italic text-[#e87a62]">tuning</span>
+                </h1>
+                <p class="mt-2 text-sm text-[#a09c8f]">
+                    Fine-tune detection thresholds, frequency parameters, and ensemble weights in real-time. Changes propagate immediately.
+                </p>
+            </div>
+
+            <div id="tuning-panels-container"></div>
+
+            <div class="flex items-center justify-end gap-4 mt-8 pt-6 border-t border-[rgba(227,223,207,0.10)]">
+                <button class="btn-outline" onclick="resetConfig()">
+                    <span class="material-symbols-outlined text-sm">restart_alt</span>
+                    Reset to Defaults
+                </button>
+                <button class="btn-sand" onclick="saveConfig()">
+                    <span class="material-symbols-outlined text-sm">save</span>
+                    Save Configuration
+                </button>
+            </div>
+        </section>
+
+        <!-- ═══════════════════════════════════════════════
+             SECTION: SYSTEM & HEALTH
+             ═══════════════════════════════════════════════ -->
+        <section class="page-section" id="page-system">
+            <div class="text-center max-w-3xl mx-auto mb-12">
+                <div class="inline-flex items-center gap-2 px-3 py-1 rounded bg-[#292928] border border-[rgba(227,223,207,0.10)] text-[#cac6bc] font-mono-custom text-[11px] uppercase tracking-wider mb-4">
+                    <span class="material-symbols-outlined text-xs text-[#e87a62]" data-icon="memory">memory</span>
+                    Daemon Protocol 04-B
+                </div>
+                <h1 class="font-serif-display text-4xl sm:text-5xl lg:text-6xl text-[#f3eedc] font-normal tracking-tight leading-tight">
+                    System health &amp; <span class="text-[#e87a62] italic font-serif-display">configuration</span>
+                </h1>
+                <p class="mt-4 text-sm text-[#a09c8f] max-w-xl mx-auto leading-relaxed">
+                    Real-time daemon telemetry, cryptographic safeguards, and ingest codec pipelines.
+                </p>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+                <!-- 8-Col Primary Card -->
+                <div class="lg:col-span-8 bg-[#292928] rounded-[20px] p-7 sm:p-8 border border-[rgba(227,223,207,0.10)] panel-shadow flex flex-col divide-y divide-[rgba(227,223,207,0.08)]">
+                    <!-- Engine Online Row -->
+                    <div class="pb-7 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                        <div class="flex items-center gap-3">
+                            <span class="relative flex h-3 w-3">
+                                <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#9db894] opacity-75"></span>
+                                <span class="relative inline-flex rounded-full h-3 w-3 bg-[#9db894]"></span>
+                            </span>
+                            <div>
+                                <div class="flex items-center gap-2">
+                                    <span class="text-sm font-medium text-[#f3eedc]">Engine online</span>
+                                    <span class="px-2 py-0.5 rounded bg-[#263026] text-[#9db894] font-mono-custom text-[11px] tracking-wider">HEALTHY</span>
+                                </div>
+                                <div class="font-mono-custom text-xs text-[#a09c8f] mt-0.5" id="engine-version">
+                                    deepfake_detection_v2_adaptive
                                 </div>
                             </div>
                         </div>
-                        <div class="form-group full-width">
-                            <button type="submit" class="btn-primary" style="width: 100%;">Submit Feedback</button>
+                        <div class="font-mono-custom text-xs text-[#cac6bc] bg-[#202020] px-3.5 py-1.5 rounded border border-[rgba(227,223,207,0.10)] flex items-center gap-2">
+                            <span class="text-[#f3eedc]">Uptime: 99.98%</span>
+                            <span class="text-[#a09c8f]/40">•</span>
+                            <span class="text-[#f3eedc]">Latency: 14ms</span>
                         </div>
                     </div>
-                </form>
-                <div class="info-box" style="margin-top: 24px;">
-                    <span class="material-symbols-outlined" style="color: var(--secondary);">info</span>
-                    Your feedback is protected by anti-poisoning safeguards. Submissions are rate-limited to 50 per hour.
-                </div>
-            </div>
-        </section>
 
-        <!-- SECTION: LEARNING -->
-        <section class="page-section" id="page-learning">
-            <h1 class="headline-lg" style="margin-bottom: 32px;">Adaptive Learning Status</h1>
-            
-            <div class="stat-cards" id="learning-stats">
-                <div class="stat-card">
-                    <span class="material-symbols-outlined" style="color: var(--primary); font-size: 28px;">rate_review</span>
-                    <span class="stat-card-value" id="lr-feedback">—</span>
-                    <span class="stat-card-label">Feedback Records</span>
-                </div>
-                <div class="stat-card">
-                    <span class="material-symbols-outlined" style="color: var(--secondary); font-size: 28px;">fingerprint</span>
-                    <span class="stat-card-value" id="lr-patterns">—</span>
-                    <span class="stat-card-label">Stored Patterns</span>
-                </div>
-                <div class="stat-card">
-                    <span class="material-symbols-outlined" style="color: #22c55e; font-size: 28px;">model_training</span>
-                    <div style="display: flex; align-items: center; gap: 8px; margin-top: 8px;">
-                        <span class="status-dot online" id="lr-ready-dot"></span>
-                        <span class="stat-card-value" style="margin-top: 0;" id="lr-ready">—</span>
-                        <span id="lr-accuracy" style="font-size: 14px; color: var(--on-surface-variant);"></span>
-                    </div>
-                    <span class="stat-card-label">Classifier Ready</span>
-                </div>
-                <div class="stat-card">
-                    <span class="material-symbols-outlined" style="color: var(--tertiary); font-size: 28px;">tune</span>
-                    <span class="stat-card-value" id="lr-adjusted">—</span>
-                    <span class="stat-card-label">Modules Adjusted</span>
-                </div>
-            </div>
-
-            <div class="glass-panel" style="padding: 24px; margin-top: 32px;">
-                <h3 class="title-md" style="margin-bottom: 16px;">Threshold Adjustments</h3>
-                <div style="overflow-x: auto;">
-                    <table class="batch-table">
-                        <thead>
-                            <tr>
-                                <th>Module</th>
-                                <th>Authentic Samples</th>
-                                <th>Deepfake Samples</th>
-                                <th>Adjustment</th>
-                            </tr>
-                        </thead>
-                        <tbody id="threshold-table-body"></tbody>
-                    </table>
-                </div>
-            </div>
-
-            <div style="margin-top: 24px; text-align: right;">
-                <button class="btn-warning" id="retrain-btn">Force Retrain</button>
-            </div>
-        </section>
-
-        <!-- SECTION: HEALTH -->
-        <section class="page-section" id="page-health">
-            <h1 class="headline-lg" style="margin-bottom: 32px;">System Health & Configuration</h1>
-
-            <div class="glass-panel" style="padding: 24px; margin-bottom: 24px;">
-                <div class="status-indicator">
-                    <div class="dot"></div>
-                    <div>
-                        <span class="title-md" style="font-weight: 600; display: block;">Engine Online</span>
-                        <span id="engine-version" style="font-size: 13px; font-family: monospace; color: var(--on-surface-variant);">deepfake_detection_v2_adaptive</span>
-                    </div>
-                </div>
-            </div>
-
-            <div class="glass-panel security-panel" style="margin-bottom: 24px;">
-                <h3 class="title-md" style="margin-bottom: 16px;">Security Status</h3>
-                <div class="security-item">
-                    <span>Rate Limiting</span>
-                    <div style="display: flex; align-items: center; gap: 8px;"><span class="label-md">Active</span><div class="status-dot online"></div></div>
-                </div>
-                <div class="security-item">
-                    <span>File Sanitizer</span>
-                    <div style="display: flex; align-items: center; gap: 8px;"><span class="label-md">Active</span><div class="status-dot online"></div></div>
-                </div>
-                <div class="security-item">
-                    <span>HMAC Data Integrity</span>
-                    <div style="display: flex; align-items: center; gap: 8px;"><span class="label-md">Active</span><div class="status-dot online"></div></div>
-                </div>
-                <div class="security-item">
-                    <span>Anti-Poisoning Guard</span>
-                    <div style="display: flex; align-items: center; gap: 8px;"><span class="label-md">Active</span><div class="status-dot online"></div></div>
-                </div>
-            </div>
-
-            <div class="glass-panel" style="padding: 24px;">
-                <h3 class="title-md" style="margin-bottom: 16px;">Supported Formats</h3>
-                <div class="format-columns">
-                    <div class="format-column">
-                        <h4>Images</h4>
-                        <div class="format-pills">
-                            <span class="format-pill">.jpg</span><span class="format-pill">.jpeg</span><span class="format-pill">.png</span>
-                            <span class="format-pill">.webp</span><span class="format-pill">.bmp</span><span class="format-pill">.tiff</span>
+                    <!-- Security Status -->
+                    <div class="py-7">
+                        <div class="flex items-center justify-between mb-6">
+                            <div>
+                                <h2 class="text-sm font-medium text-[#f3eedc] tracking-tight">Security status</h2>
+                                <p class="text-xs text-[#a09c8f] mt-0.5">Automated runtime assertions and cryptographic defenses</p>
+                            </div>
+                            <span class="font-mono-custom text-[11px] text-[#a09c8f] tracking-wider">SEC-LAYER / VERIFIED</span>
+                        </div>
+                        <div class="space-y-4">
+                            <div class="flex items-start justify-between">
+                                <div class="flex items-start gap-4">
+                                    <span class="font-mono-custom text-xs text-[#e87a62] font-semibold">01</span>
+                                    <div>
+                                        <h3 class="text-xs font-medium text-[#f3eedc]">Rate limiting</h3>
+                                        <p class="text-xs text-[#a09c8f]">Token-bucket ingress throttle guarding endpoints.</p>
+                                    </div>
+                                </div>
+                                <span class="text-[#9db894] font-mono-custom text-xs">Active</span>
+                            </div>
+                            <div class="flex items-start justify-between">
+                                <div class="flex items-start gap-4">
+                                    <span class="font-mono-custom text-xs text-[#e87a62] font-semibold">02</span>
+                                    <div>
+                                        <h3 class="text-xs font-medium text-[#f3eedc]">File sanitizer</h3>
+                                        <p class="text-xs text-[#a09c8f]">Magic-byte validation &amp; EXIF scrub prior to tensor parsing.</p>
+                                    </div>
+                                </div>
+                                <span class="text-[#9db894] font-mono-custom text-xs">Active</span>
+                            </div>
+                            <div class="flex items-start justify-between">
+                                <div class="flex items-start gap-4">
+                                    <span class="font-mono-custom text-xs text-[#e87a62] font-semibold">03</span>
+                                    <div>
+                                        <h3 class="text-xs font-medium text-[#f3eedc]">HMAC data integrity</h3>
+                                        <p class="text-xs text-[#a09c8f]">SHA-256 session signatures guarding stored feedback.</p>
+                                    </div>
+                                </div>
+                                <span class="text-[#9db894] font-mono-custom text-xs">Active</span>
+                            </div>
+                            <div class="flex items-start justify-between">
+                                <div class="flex items-start gap-4">
+                                    <span class="font-mono-custom text-xs text-[#e87a62] font-semibold">04</span>
+                                    <div>
+                                        <h3 class="text-xs font-medium text-[#f3eedc]">Anti-poisoning guard</h3>
+                                        <p class="text-xs text-[#a09c8f]">Isolation filtering adversarial gradient feedback attacks.</p>
+                                    </div>
+                                </div>
+                                <span class="text-[#9db894] font-mono-custom text-xs">Active</span>
+                            </div>
                         </div>
                     </div>
-                    <div class="format-column">
-                        <h4>Videos</h4>
-                        <div class="format-pills">
-                            <span class="format-pill">.mp4</span><span class="format-pill">.avi</span><span class="format-pill">.mov</span>
-                            <span class="format-pill">.mkv</span><span class="format-pill">.webm</span>
+
+                    <!-- Supported Formats Matrix -->
+                    <div class="pt-7">
+                        <div class="flex items-center justify-between mb-4">
+                            <h2 class="text-sm font-medium text-[#f3eedc]">Supported formats</h2>
+                            <span class="font-mono-custom text-[11px] text-[#a09c8f]">STREAMS: 17</span>
+                        </div>
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 font-mono-custom text-xs text-[#cac6bc]">
+                            <div>
+                                <span class="text-[#a09c8f] block mb-2 font-medium">Images (6 types)</span>
+                                <div class="flex flex-wrap gap-1.5">
+                                    <span class="px-2 py-0.5 rounded bg-[#202020] border border-[rgba(227,223,207,0.08)]">.jpg</span>
+                                    <span class="px-2 py-0.5 rounded bg-[#202020] border border-[rgba(227,223,207,0.08)]">.jpeg</span>
+                                    <span class="px-2 py-0.5 rounded bg-[#202020] border border-[rgba(227,223,207,0.08)]">.png</span>
+                                    <span class="px-2 py-0.5 rounded bg-[#202020] border border-[rgba(227,223,207,0.08)]">.webp</span>
+                                    <span class="px-2 py-0.5 rounded bg-[#202020] border border-[rgba(227,223,207,0.08)]">.bmp</span>
+                                    <span class="px-2 py-0.5 rounded bg-[#202020] border border-[rgba(227,223,207,0.08)]">.tiff</span>
+                                </div>
+                            </div>
+                            <div>
+                                <span class="text-[#a09c8f] block mb-2 font-medium">Videos (5 types)</span>
+                                <div class="flex flex-wrap gap-1.5">
+                                    <span class="px-2 py-0.5 rounded bg-[#202020] border border-[rgba(227,223,207,0.08)]">.mp4</span>
+                                    <span class="px-2 py-0.5 rounded bg-[#202020] border border-[rgba(227,223,207,0.08)]">.avi</span>
+                                    <span class="px-2 py-0.5 rounded bg-[#202020] border border-[rgba(227,223,207,0.08)]">.mov</span>
+                                    <span class="px-2 py-0.5 rounded bg-[#202020] border border-[rgba(227,223,207,0.08)]">.mkv</span>
+                                    <span class="px-2 py-0.5 rounded bg-[#202020] border border-[rgba(227,223,207,0.08)]">.webm</span>
+                                </div>
+                            </div>
+                            <div>
+                                <span class="text-[#a09c8f] block mb-2 font-medium">Audio (6 types)</span>
+                                <div class="flex flex-wrap gap-1.5">
+                                    <span class="px-2 py-0.5 rounded bg-[#202020] border border-[rgba(227,223,207,0.08)]">.wav</span>
+                                    <span class="px-2 py-0.5 rounded bg-[#202020] border border-[rgba(227,223,207,0.08)]">.mp3</span>
+                                    <span class="px-2 py-0.5 rounded bg-[#202020] border border-[rgba(227,223,207,0.08)]">.flac</span>
+                                    <span class="px-2 py-0.5 rounded bg-[#202020] border border-[rgba(227,223,207,0.08)]">.ogg</span>
+                                    <span class="px-2 py-0.5 rounded bg-[#202020] border border-[rgba(227,223,207,0.08)]">.aac</span>
+                                    <span class="px-2 py-0.5 rounded bg-[#202020] border border-[rgba(227,223,207,0.08)]">.m4a</span>
+                                </div>
+                            </div>
                         </div>
                     </div>
-                    <div class="format-column">
-                        <h4>Audio</h4>
-                        <div class="format-pills">
-                            <span class="format-pill">.wav</span><span class="format-pill">.mp3</span><span class="format-pill">.flac</span>
-                            <span class="format-pill">.ogg</span><span class="format-pill">.aac</span><span class="format-pill">.m4a</span>
+                </div>
+
+                <!-- 4-Col Side Telemetry -->
+                <div class="lg:col-span-4 flex flex-col gap-6">
+                    <div class="bg-[#292928] rounded-[20px] p-6 border border-[rgba(227,223,207,0.10)] panel-shadow">
+                        <div class="flex items-center justify-between pb-3 border-b border-[rgba(227,223,207,0.08)] mb-4">
+                            <span class="text-xs font-mono-custom text-[#a09c8f] uppercase">Inference Engine</span>
+                            <span class="text-[#9db894] font-mono-custom text-xs">ONLINE</span>
+                        </div>
+                        <div class="space-y-4 font-mono-custom text-xs">
+                            <div>
+                                <span class="text-[#a09c8f] block mb-1">Architecture</span>
+                                <span class="text-[#f3eedc]">Hybrid Multi-Modal Forensic Decoders</span>
+                            </div>
+                            <div>
+                                <span class="text-[#a09c8f] block mb-1">Max Ingest Size</span>
+                                <span class="text-[#f3eedc]">500 MB per analysis request</span>
+                            </div>
+                            <div>
+                                <span class="text-[#a09c8f] block mb-1">Temporal Keyframe Step</span>
+                                <span class="text-[#f3eedc]">Adaptive 20-sample rate</span>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -444,39 +896,71 @@
 
     </main>
 
-    <!-- Mobile Bottom Nav -->
-    <nav class="mobile-nav">
-        <button data-page="upload" class="active"><span class="material-symbols-outlined">security</span>Analyze</button>
-        <button data-page="results"><span class="material-symbols-outlined">analytics</span>Results</button>
-        <button data-page="batch"><span class="material-symbols-outlined">layers</span>Batch</button>
-        <button data-page="learning"><span class="material-symbols-outlined">school</span>Learning</button>
-        <button data-page="health"><span class="material-symbols-outlined">settings</span>System</button>
-    </nav>
+    <!-- Shared Minimal Footer -->
+    <footer class="bg-[#1b1c1c] border-t border-[rgba(227,223,207,0.10)]">
+        <div class="max-w-[1216px] mx-auto px-6 py-8 flex flex-col md:flex-row justify-between items-center gap-4 text-xs text-[#a09c8f]">
+            <div>© 2026 DeepScan AI Forensic Intelligence. Neural Engine v4.2.1. All rights reserved.</div>
+            <div class="flex items-center gap-6">
+                <a class="hover:text-[#f3eedc] transition-colors" href="#privacy">Privacy Policy</a>
+                <a class="hover:text-[#f3eedc] transition-colors" href="#terms">Terms of Service</a>
+                <a class="hover:text-[#f3eedc] transition-colors" href="#protocol">Forensic Protocol</a>
+                <a class="hover:text-[#f3eedc] transition-colors" href="#security">Security Audit</a>
+            </div>
+        </div>
+    </footer>
 
+    <!-- Client Logic Scripts -->
     <script>
         const API_BASE = '';
         let lastResult = null;
         let selectedVerdict = null;
+        let selectedFile = null;
+        let selectedBatchFiles = [];
 
+        // ═══════════════════════════════════════════════
+        // NAVIGATION
+        // ═══════════════════════════════════════════════
         function navigateTo(page) {
             document.querySelectorAll('.page-section').forEach(s => s.classList.remove('active'));
             const target = document.getElementById('page-' + page);
             if (target) target.classList.add('active');
-            
-            document.querySelectorAll('.sidebar-nav a').forEach(a => a.classList.remove('active'));
-            const navLink = document.querySelector('.sidebar-nav a[data-page="' + page + '"]');
-            if (navLink) navLink.classList.add('active');
-            
-            document.querySelectorAll('.mobile-nav button').forEach(b => b.classList.remove('active'));
-            const mobileBtn = document.querySelector('.mobile-nav button[data-page="' + page + '"]');
-            if (mobileBtn) mobileBtn.classList.add('active');
-            
+
+            // Desktop nav active indicator
+            document.querySelectorAll('.nav-link').forEach(l => {
+                l.classList.remove('text-[#f3eedc]', 'border-b-2', 'border-[#e87a62]', 'font-medium');
+                l.classList.add('text-[#cac6bc]');
+            });
+            const activeNav = document.querySelector(`.nav-link[data-page="${page}"]`);
+            if (activeNav) {
+                activeNav.classList.remove('text-[#cac6bc]');
+                activeNav.classList.add('text-[#f3eedc]', 'border-b-2', 'border-[#e87a62]', 'font-medium');
+            }
+
+            // Mobile nav drawer active indicator
+            document.querySelectorAll('.nav-link-mobile').forEach(l => {
+                l.classList.remove('text-[#f3eedc]', 'font-medium');
+                l.classList.add('text-[#cac6bc]');
+            });
+            const activeMobileNav = document.querySelector(`.nav-link-mobile[data-page="${page}"]`);
+            if (activeMobileNav) {
+                activeMobileNav.classList.remove('text-[#cac6bc]');
+                activeMobileNav.classList.add('text-[#f3eedc]', 'font-medium');
+            }
+
+            document.getElementById('mobile-nav-drawer').classList.add('hidden');
+
             if (page === 'learning') fetchLearningStatus();
-            if (page === 'health') fetchHealth();
-            closeSidebar();
+            if (page === 'tuning') fetchConfig();
+            if (page === 'system') fetchHealth();
+
+            window.scrollTo({ top: 0, behavior: 'smooth' });
         }
 
-        document.querySelectorAll('.sidebar-nav a, .mobile-nav button, [data-page]').forEach(el => {
+        function toggleMobileMenu() {
+            document.getElementById('mobile-nav-drawer').classList.toggle('hidden');
+        }
+
+        document.querySelectorAll('[data-page]').forEach(el => {
             el.addEventListener('click', (e) => {
                 e.preventDefault();
                 const page = el.getAttribute('data-page');
@@ -484,18 +968,12 @@
             });
         });
 
-        function toggleSidebar() {
-            document.getElementById('sidebar').classList.toggle('open');
-        }
-        
-        function closeSidebar() {
-            document.getElementById('sidebar').classList.remove('open');
-        }
-
+        // ═══════════════════════════════════════════════
+        // SINGLE FILE ANALYZE
+        // ═══════════════════════════════════════════════
         const dropZone = document.getElementById('drop-zone');
         const fileInput = document.getElementById('file-input');
         const analyzeBtn = document.getElementById('analyze-btn');
-        let selectedFile = null;
 
         function preventDefaults(e) {
             e.preventDefault();
@@ -507,311 +985,758 @@
         });
 
         dropZone.addEventListener('click', (e) => {
-            if (e.target !== fileInput) {
-                fileInput.click();
-            }
+            if (e.target !== fileInput) fileInput.click();
         });
-        dropZone.addEventListener('dragover', () => { dropZone.style.borderColor = 'var(--primary)'; });
+
+        dropZone.addEventListener('dragover', () => { dropZone.style.borderColor = '#e87a62'; });
         dropZone.addEventListener('dragleave', () => { dropZone.style.borderColor = ''; });
         dropZone.addEventListener('drop', (e) => {
             dropZone.style.borderColor = '';
             if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-                selectedFile = e.dataTransfer.files[0];
-                updateDropZoneLabel(selectedFile.name);
+                handleFileChosen(e.dataTransfer.files[0]);
             }
         });
-        
+
         fileInput.addEventListener('change', () => {
             if (fileInput.files && fileInput.files.length > 0) {
-                selectedFile = fileInput.files[0];
-                updateDropZoneLabel(selectedFile.name);
+                handleFileChosen(fileInput.files[0]);
             }
         });
-        
-        function updateDropZoneLabel(name) {
-            dropZone.querySelector('h3').textContent = name;
-            dropZone.querySelector('p').textContent = 'File selected. Click Analyze to proceed.';
+
+        function handleFileChosen(file) {
+            selectedFile = file;
+            const card = document.getElementById('file-manifest-card');
+            card.classList.remove('hidden');
+            document.getElementById('manifest-name').textContent = file.name;
+            const sizeMb = (file.size / (1024 * 1024)).toFixed(2);
+            document.getElementById('manifest-meta').textContent = `${sizeMb} MB • Ready for analysis`;
+            
+            // Icon
+            const iconEl = document.getElementById('manifest-icon');
+            if (file.type.startsWith('video/')) iconEl.textContent = 'video_file';
+            else if (file.type.startsWith('audio/')) iconEl.textContent = 'audio_file';
+            else iconEl.textContent = 'image';
+
+            document.getElementById('analyze-error-box').classList.add('hidden');
+        }
+
+        function clearSelectedFile() {
+            selectedFile = null;
+            fileInput.value = '';
+            document.getElementById('file-manifest-card').classList.add('hidden');
+            document.getElementById('upload-progress-box').classList.add('hidden');
         }
 
         analyzeBtn.addEventListener('click', async () => {
             if (!selectedFile) {
-                showToast('Please select a file first.', 'warning');
+                showToast('Please select a file to analyze.', 'warning');
                 return;
             }
-            showLoading();
+
+            const errorBox = document.getElementById('analyze-error-box');
+            errorBox.classList.add('hidden');
+
+            const progressBox = document.getElementById('upload-progress-box');
+            progressBox.classList.remove('hidden');
+            const progressBar = document.getElementById('upload-progress-bar');
+            const progressPct = document.getElementById('upload-progress-pct');
+
+            let pct = 15;
+            progressBar.style.width = pct + '%';
+            progressPct.textContent = pct + '%';
+            const progressTimer = setInterval(() => {
+                if (pct < 85) {
+                    pct += Math.floor(Math.random() * 15) + 5;
+                    progressBar.style.width = Math.min(pct, 88) + '%';
+                    progressPct.textContent = Math.min(pct, 88) + '%';
+                }
+            }, 250);
+
+            showLoading('RUNNING FORENSIC DECODER PIPELINES...');
+
             const formData = new FormData();
             formData.append('file', selectedFile);
+
             try {
                 const res = await fetch(API_BASE + '/api/analyze', { method: 'POST', body: formData });
+                clearInterval(progressTimer);
+                progressBar.style.width = '100%';
+                progressPct.textContent = '100%';
+
                 const data = await res.json();
                 if (res.ok) {
                     lastResult = data;
                     renderResults(data);
-                    navigateTo('results');
+                    setTimeout(() => {
+                        progressBox.classList.add('hidden');
+                        navigateTo('results');
+                    }, 400);
                 } else {
-                    showToast('Error: ' + (data.error || 'Unknown error'), 'error');
+                    progressBox.classList.add('hidden');
+                    errorBox.classList.remove('hidden');
+                    document.getElementById('analyze-error-msg').textContent = data.error || 'Analysis failed.';
+                    showToast('Error: ' + (data.error || 'Analysis failed'), 'error');
                 }
             } catch (err) {
-                showToast('Connection failed. Is the backend running?', 'error');
+                clearInterval(progressTimer);
+                progressBox.classList.add('hidden');
+                errorBox.classList.remove('hidden');
+                document.getElementById('analyze-error-msg').textContent = 'Server connection failed. Verify the backend daemon is running.';
+                showToast('Connection failed. Backend offline.', 'error');
             } finally {
                 hideLoading();
             }
         });
 
+        // ═══════════════════════════════════════════════
+        // RENDER RESULTS
+        // ═══════════════════════════════════════════════
         function renderResults(data) {
-            document.getElementById('result-filename').textContent = data.original_filename || 'Unknown File';
-            const vb = document.getElementById('result-verdict');
-            vb.textContent = (data.verdict || '—').toUpperCase();
-            vb.className = 'verdict-badge ' + (data.verdict || '');
-            
-            const prob = Math.round((data.deepfake_probability || 0) * 100);
-            document.getElementById('gauge-value').textContent = prob + '%';
-            const gaugeEl = document.getElementById('gauge');
-            let gaugeColor = '#22c55e';
-            if (prob > 70) gaugeColor = 'var(--error)';
-            else if (prob > 30) gaugeColor = '#f59e0b';
-            gaugeEl.style.background = 'radial-gradient(closest-side, #0e141a 80%, transparent 0 100%), conic-gradient(' + gaugeColor + ' ' + prob + '%, #2f353c 0)';
-            document.getElementById('gauge-value').style.color = gaugeColor;
-            
-            const sev = document.getElementById('gauge-severity');
-            if (prob > 70) { sev.textContent = 'CRITICAL'; sev.style.color = 'var(--error)'; }
-            else if (prob > 30) { sev.textContent = 'MODERATE'; sev.style.color = '#f59e0b'; }
-            else { sev.textContent = 'MINIMAL'; sev.style.color = '#22c55e'; }
-            
-            const conf = Math.round((data.confidence || 0) * 100);
-            document.getElementById('confidence-value').textContent = (data.confidence || 0).toFixed(2);
-            document.getElementById('confidence-bar').style.width = conf + '%';
-            
-            document.getElementById('manipulation-type').textContent = data.manipulation_type || 'unknown';
-            document.getElementById('file-hash').textContent = (data.file_hash || '—').substring(0, 12) + '...';
-            document.getElementById('processing-time').textContent = (data.processing_time_ms || 0).toLocaleString() + ' ms';
-            
-            const fc = document.getElementById('flags-container');
-            fc.innerHTML = '';
+            document.getElementById('result-filename').textContent = data.original_filename || 'evidence_sample';
+
+            const prob = data.deepfake_probability || 0;
+            const probPct = Math.round(prob * 100);
+            document.getElementById('result-prob-pct').textContent = probPct + '%';
+
+            // SVG Radial Gauge Calculation (Radius 66 => circumference 414.69)
+            const circumference = 414.69;
+            const offset = circumference * (1 - prob);
+            const circleEl = document.getElementById('gauge-circle');
+            circleEl.style.strokeDashoffset = offset;
+
+            // Verdict styling
+            const v = (data.verdict || 'unknown').toLowerCase();
+            const badge = document.getElementById('result-verdict-badge');
+            const headline = document.getElementById('result-headline');
+            const subheadline = document.getElementById('result-subheadline');
+            const explanation = document.getElementById('result-verdict-explanation');
+
+            badge.className = 'verdict-tag text-xs ' + v;
+            badge.textContent = v.toUpperCase();
+
+            if (v === 'deepfake') {
+                circleEl.style.stroke = '#e87a62';
+                headline.innerHTML = 'Likely <span class="italic text-[#e87a62]">deepfake</span>';
+                subheadline.textContent = 'Forensic inference detected multi-modal manipulation across synchronized acoustic and spatial features.';
+                explanation.textContent = 'Exceeds critical threshold for automated classification. Verification suggested.';
+            } else if (v === 'authentic') {
+                circleEl.style.stroke = '#9db894';
+                headline.innerHTML = 'Authentic <span class="italic text-[#9db894]">media verified</span>';
+                subheadline.textContent = 'No systemic synthetic artifacts or localized splicing signatures detected.';
+                explanation.textContent = 'Within standard natural camera and acoustics tolerance thresholds.';
+            } else {
+                circleEl.style.stroke = '#d9a441';
+                headline.innerHTML = 'Suspicious <span class="italic text-[#d9a441]">patterns detected</span>';
+                subheadline.textContent = 'Anomalous compression or frequency characteristics warrant secondary human review.';
+                explanation.textContent = 'Elevated anomaly score requiring manual verification.';
+            }
+
+            // Confidence & Hash
+            const confPct = Math.round((data.confidence || 0) * 100);
+            document.getElementById('result-confidence-val').textContent = confPct + '%';
+            document.getElementById('result-manip-type').textContent = data.manipulation_type || 'unknown';
+            document.getElementById('result-file-hash').textContent = data.file_hash || '—';
+            document.getElementById('result-latency').textContent = (data.processing_time_ms || 0).toLocaleString() + ' ms';
+
+            // Flags
+            const flagsContainer = document.getElementById('result-flags-container');
+            flagsContainer.innerHTML = '';
             (data.flags || []).forEach(f => {
-                const s = document.createElement('span');
-                s.className = 'flag-tag';
-                s.textContent = f;
-                fc.appendChild(s);
+                const row = document.createElement('div');
+                row.className = 'py-2 flex items-start gap-2.5 border-b border-[rgba(227,223,207,0.06)] last:border-0';
+                row.innerHTML = `
+                    <span class="material-symbols-outlined text-[#e87a62] text-sm mt-0.5" data-icon="warning">warning</span>
+                    <span class="text-xs text-[#f3eedc] font-mono-custom">${f.replace(/_/g, ' ')}</span>
+                `;
+                flagsContainer.appendChild(row);
             });
-            
-            const mc = document.getElementById('module-scores-container');
-            mc.innerHTML = '';
-            const scoreColors = { facial_analysis: 'var(--error)', temporal_analysis: '#f97316', gan_artifacts: '#eab308', audio_analysis: 'var(--secondary)', metadata_forensics: 'var(--tertiary-container)', noise_analysis: 'var(--primary)', spectral_analysis: 'var(--secondary)', prosody_analysis: 'var(--tertiary)', voice_clone_detect: 'var(--error)' };
-            
-            Object.entries(data.module_scores || {}).forEach(([key, val]) => {
-                const pct = Math.round(val * 100);
-                const color = scoreColors[key] || 'var(--primary)';
-                let severity = 'LOW';
-                if (pct > 80) severity = 'CRITICAL';
-                else if (pct > 60) severity = 'HIGH';
-                else if (pct > 40) severity = 'MODERATE';
-                const div = document.createElement('div');
-                div.className = 'module-score';
-                div.innerHTML = '<div class="module-score-header"><span>' + key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()) + '</span><span style="color:' + color + ';font-weight:700">' + val.toFixed(2) + ' ' + severity + '</span></div><div class="progress-bar-track"><div class="progress-bar-fill" style="width:' + pct + '%;background:' + color + '"></div></div>';
-                mc.appendChild(div);
+
+            // Multi-Modal Breakdown
+            const scoresContainer = document.getElementById('result-scores-container');
+            scoresContainer.innerHTML = '';
+            const scores = data.module_scores || {};
+            const scoreCount = Object.keys(scores).length;
+            document.getElementById('result-model-count').textContent = `${scoreCount} Decoders`;
+
+            Object.entries(scores).forEach(([modName, scoreVal]) => {
+                const scorePct = Math.round(scoreVal * 100);
+                const isHigh = scoreVal >= 0.70;
+                const isModerate = scoreVal >= 0.35 && scoreVal < 0.70;
+                const barColor = isHigh ? '#e87a62' : (isModerate ? '#d9a441' : '#9db894');
+                const label = modName.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+
+                const item = document.createElement('div');
+                item.innerHTML = `
+                    <div class="flex justify-between items-center mb-1.5 text-xs">
+                        <span class="text-[#f3eedc] font-medium">${label}</span>
+                        <span class="font-mono-custom font-tabular" style="color: ${barColor}">${scorePct}%</span>
+                    </div>
+                    <div class="w-full h-1.5 bg-[#202020] rounded-full overflow-hidden">
+                        <div class="h-full rounded-full transition-all duration-500" style="width: ${scorePct}%; background-color: ${barColor}"></div>
+                    </div>
+                `;
+                scoresContainer.appendChild(item);
             });
-            
-            const fdc = document.getElementById('findings-container');
-            fdc.innerHTML = '';
-            (data.flags || []).slice(0, 4).forEach(f => {
-                const isCritical = f.includes('deepfake') || f.includes('mismatch') || f.includes('blending');
-                const isSafe = f.includes('valid') || f.includes('authentic');
-                const cls = isCritical ? 'critical' : (isSafe ? 'safe' : 'info');
-                const icon = isCritical ? 'warning' : (isSafe ? 'check_circle' : 'info');
-                const iconColor = isCritical ? 'var(--error)' : (isSafe ? 'var(--primary)' : 'var(--secondary)');
-                const div = document.createElement('div');
-                div.className = 'finding-card ' + cls;
-                div.innerHTML = '<span class="material-symbols-outlined" style="color:' + iconColor + '">' + icon + '</span><div><span style="display:block;font-size:12px;letter-spacing:0.05em;font-weight:700;color:' + iconColor + ';margin-bottom:4px">' + f.toUpperCase().replace(/_/g, ' ') + '</span><p style="font-size:14px;color:var(--on-surface-variant)">Forensic flag detected during analysis.</p></div>';
-                fdc.appendChild(div);
-            });
-            
+
+            // Findings List
+            const findingsList = document.getElementById('result-findings-list');
+            findingsList.innerHTML = '';
+            const flagsList = data.flags || [];
+            if (flagsList.length === 0) {
+                findingsList.innerHTML = `
+                    <div class="p-3 bg-[#202020] rounded-lg border border-[rgba(227,223,207,0.08)] text-xs text-[#a09c8f]">
+                        No abnormal manipulation flags raised during ingestion.
+                    </div>
+                `;
+            } else {
+                flagsList.slice(0, 5).forEach(f => {
+                    const card = document.createElement('div');
+                    card.className = 'p-3 bg-[#202020] rounded-lg border border-[rgba(227,223,207,0.08)] flex items-start gap-3';
+                    card.innerHTML = `
+                        <span class="material-symbols-outlined text-[#e87a62] text-sm mt-0.5">policy</span>
+                        <div>
+                            <span class="font-mono-custom text-xs font-semibold text-[#f3eedc] block">${f.toUpperCase().replace(/_/g, ' ')}</span>
+                            <span class="text-[11px] text-[#a09c8f]">Forensic marker flagged by neural analyzer pass.</span>
+                        </div>
+                    `;
+                    findingsList.appendChild(card);
+                });
+            }
+
+            // Sync with Feedback View
             document.getElementById('fb-hash').value = data.file_hash || '';
-            document.getElementById('fb-original-verdict').value = data.verdict || '';
+            document.getElementById('fb-original-verdict').value = (data.verdict || '').toUpperCase();
             document.getElementById('fb-media-type').value = data.media_type || 'image';
+            document.getElementById('fb-manipulation-type').value = data.manipulation_type || 'unknown';
         }
 
-        const batchDropZone = document.getElementById('batch-drop-zone');
+        function copyResultHash() {
+            const hash = document.getElementById('result-file-hash').textContent;
+            navigator.clipboard.writeText(hash).then(() => {
+                showToast('SHA-256 hash copied to clipboard.');
+            });
+        }
+
+        // ═══════════════════════════════════════════════
+        // BATCH ANALYSIS
+        // ═══════════════════════════════════════════════
+        const batchDropzone = document.getElementById('batch-dropzone');
         const batchFileInput = document.getElementById('batch-file-input');
         const batchAnalyzeBtn = document.getElementById('batch-analyze-btn');
-        let selectedBatchFiles = null;
 
         ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
-            batchDropZone.addEventListener(eventName, preventDefaults, false);
+            batchDropzone.addEventListener(eventName, preventDefaults, false);
         });
 
-        batchDropZone.addEventListener('click', (e) => {
-            if (e.target !== batchFileInput) {
-                batchFileInput.click();
-            }
+        batchDropzone.addEventListener('click', (e) => {
+            if (e.target !== batchFileInput) batchFileInput.click();
         });
-        batchDropZone.addEventListener('dragover', () => { batchDropZone.style.borderColor = 'var(--primary)'; });
-        batchDropZone.addEventListener('dragleave', () => { batchDropZone.style.borderColor = ''; });
-        batchDropZone.addEventListener('drop', (e) => {
-            batchDropZone.style.borderColor = '';
-            if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-                selectedBatchFiles = e.dataTransfer.files;
-                batchDropZone.querySelector('h3').textContent = selectedBatchFiles.length + ' files selected';
-            }
+
+        batchDropzone.addEventListener('dragover', () => { batchDropzone.style.borderColor = '#e87a62'; });
+        batchDropzone.addEventListener('dragleave', () => { batchDropzone.style.borderColor = ''; });
+        batchDropzone.addEventListener('drop', (e) => {
+            batchDropzone.style.borderColor = '';
+            if (e.dataTransfer.files) handleBatchFiles(Array.from(e.dataTransfer.files));
         });
-        
+
         batchFileInput.addEventListener('change', () => {
-            if (batchFileInput.files && batchFileInput.files.length > 0) {
-                selectedBatchFiles = batchFileInput.files;
-                batchDropZone.querySelector('h3').textContent = selectedBatchFiles.length + ' files selected';
-            }
+            if (batchFileInput.files) handleBatchFiles(Array.from(batchFileInput.files));
         });
+
+        function handleBatchFiles(files) {
+            selectedBatchFiles = selectedBatchFiles.concat(files);
+            updateBatchUI();
+        }
+
+        function clearBatchQueue() {
+            selectedBatchFiles = [];
+            batchFileInput.value = '';
+            updateBatchUI();
+            document.getElementById('batch-results-panel').classList.add('hidden');
+        }
+
+        function updateBatchUI() {
+            const count = selectedBatchFiles.length;
+            document.getElementById('batch-queue-count').textContent = `${count} files queued`;
+            const totalBytes = selectedBatchFiles.reduce((acc, f) => acc + f.size, 0);
+            const totalMb = (totalBytes / (1024 * 1024)).toFixed(1);
+            document.getElementById('batch-queue-size').textContent = `${totalMb} MB total`;
+
+            const chipsContainer = document.getElementById('batch-chips-container');
+            chipsContainer.innerHTML = '';
+            selectedBatchFiles.slice(0, 8).forEach((f, idx) => {
+                const chip = document.createElement('div');
+                chip.className = 'bg-[#202020] border border-[rgba(227,223,207,0.08)] rounded-lg p-2.5 flex items-center justify-between text-xs';
+                chip.innerHTML = `
+                    <div class="flex items-center gap-2 overflow-hidden truncate">
+                        <span class="material-symbols-outlined text-[#a09c8f] text-sm">attachment</span>
+                        <span class="font-mono-custom text-[#f3eedc] truncate">${f.name}</span>
+                    </div>
+                    <button class="text-[#a09c8f] hover:text-[#e87a62] p-1" onclick="removeBatchFile(${idx})">
+                        <span class="material-symbols-outlined text-xs">close</span>
+                    </button>
+                `;
+                chipsContainer.appendChild(chip);
+            });
+        }
+
+        function removeBatchFile(idx) {
+            selectedBatchFiles.splice(idx, 1);
+            updateBatchUI();
+        }
 
         batchAnalyzeBtn.addEventListener('click', async () => {
-            if (!selectedBatchFiles || selectedBatchFiles.length === 0) { showToast('Please select files first.', 'warning'); return; }
-            showLoading();
+            if (selectedBatchFiles.length === 0) {
+                showToast('Please select files for the batch queue.', 'warning');
+                return;
+            }
+
+            showLoading(`BATCH INFERENCE ON ${selectedBatchFiles.length} FILES...`);
             const formData = new FormData();
-            for (const f of selectedBatchFiles) formData.append('files', f);
+            selectedBatchFiles.forEach(f => formData.append('files', f));
+
             try {
                 const res = await fetch(API_BASE + '/api/analyze/batch', { method: 'POST', body: formData });
                 const data = await res.json();
-                if (res.ok) renderBatchResults(data);
-                else showToast('Error: ' + (data.error || 'Unknown error'), 'error');
+                if (res.ok) {
+                    renderBatchResults(data);
+                } else {
+                    showToast('Batch error: ' + (data.error || 'Failed'), 'error');
+                }
             } catch (err) {
                 showToast('Connection failed.', 'error');
-            } finally { hideLoading(); }
+            } finally {
+                hideLoading();
+            }
         });
 
         function renderBatchResults(data) {
             const panel = document.getElementById('batch-results-panel');
-            panel.style.display = 'block';
+            panel.classList.remove('hidden');
+
             const tbody = document.getElementById('batch-results-body');
             tbody.innerHTML = '';
-            let counts = { authentic: 0, suspicious: 0, deepfake: 0, error: 0 };
-            
-            (data.results || []).forEach((r, i) => {
-                const v = r.verdict || r.error || 'error';
-                if (counts[v] !== undefined) counts[v]++;
-                else counts.error++;
+
+            let deepfakeCount = 0;
+            let authenticCount = 0;
+            let suspiciousCount = 0;
+
+            (data.results || []).forEach((r, idx) => {
+                const v = (r.verdict || r.error || 'error').toLowerCase();
+                if (v === 'deepfake') deepfakeCount++;
+                else if (v === 'authentic') authenticCount++;
+                else suspiciousCount++;
+
                 const tr = document.createElement('tr');
-                const verdictClass = v === 'authentic' ? 'authentic' : (v === 'deepfake' ? 'deepfake' : (v === 'suspicious' ? 'suspicious' : ''));
-                tr.innerHTML = '<td>' + (i + 1) + '</td><td>' + (r.original_filename || '—') + '</td><td>' + (r.media_type || '—') + '</td><td><span class="verdict-badge ' + verdictClass + '">' + v.toUpperCase() + '</span></td><td>' + (r.deepfake_probability !== undefined ? r.deepfake_probability.toFixed(2) : '—') + '</td><td>' + (r.confidence !== undefined ? r.confidence.toFixed(2) : '—') + '</td><td>' + (r.processing_time_ms !== undefined ? Math.round(r.processing_time_ms) : '—') + '</td>';
+                tr.className = 'hover:bg-[#242423] transition-colors';
+                tr.innerHTML = `
+                    <td class="py-3 px-3 text-[#a09c8f]">${idx + 1}</td>
+                    <td class="py-3 px-3 font-medium text-[#f3eedc]">${r.original_filename || '—'}</td>
+                    <td class="py-3 px-3 uppercase text-[11px] text-[#a09c8f]">${r.media_type || '—'}</td>
+                    <td class="py-3 px-3"><span class="verdict-tag ${v}">${v}</span></td>
+                    <td class="py-3 px-3 text-right font-tabular">${r.deepfake_probability !== undefined ? (r.deepfake_probability * 100).toFixed(1) + '%' : '—'}</td>
+                    <td class="py-3 px-3 text-right font-tabular">${r.confidence !== undefined ? (r.confidence * 100).toFixed(1) + '%' : '—'}</td>
+                    <td class="py-3 px-3 text-right font-tabular text-[#a09c8f]">${r.processing_time_ms !== undefined ? Math.round(r.processing_time_ms) + 'ms' : '—'}</td>
+                `;
                 tbody.appendChild(tr);
             });
-            
-            const summary = document.getElementById('batch-summary');
-            summary.style.display = 'block';
-            summary.textContent = data.total + ' files analyzed — ' + counts.deepfake + ' Deepfake, ' + counts.suspicious + ' Suspicious, ' + counts.authentic + ' Authentic';
+
+            document.getElementById('batch-summary-badge').textContent = `${data.total} analyzed in ${data.total_time_ms || 0}ms`;
+            document.getElementById('batch-summary-metrics').innerHTML = `
+                <span>Total: <strong class="text-[#f3eedc]">${data.total}</strong></span>
+                <span>Deepfakes: <strong class="text-[#e87a62]">${deepfakeCount}</strong></span>
+                <span>Suspicious: <strong class="text-[#d9a441]">${suspiciousCount}</strong></span>
+                <span>Authentic: <strong class="text-[#9db894]">${authenticCount}</strong></span>
+            `;
+            showToast('Batch analysis completed successfully.');
         }
 
+        // ═══════════════════════════════════════════════
+        // FEEDBACK FORM
+        // ═══════════════════════════════════════════════
         function selectVerdict(v) {
             selectedVerdict = v;
-            document.getElementById('toggle-authentic').classList.toggle('selected', v === 'authentic');
-            document.getElementById('toggle-deepfake').classList.toggle('selected', v === 'deepfake');
+            const authBtn = document.getElementById('toggle-authentic');
+            const fakeBtn = document.getElementById('toggle-deepfake');
+
+            if (v === 'authentic') {
+                authBtn.classList.add('bg-[#263026]', 'text-[#9db894]', 'border-[#9db894]');
+                fakeBtn.classList.remove('bg-[#3a2621]', 'text-[#f0937f]', 'border-[#f0937f]');
+            } else if (v === 'deepfake') {
+                fakeBtn.classList.add('bg-[#3a2621]', 'text-[#f0937f]', 'border-[#f0937f]');
+                authBtn.classList.remove('bg-[#263026]', 'text-[#9db894]', 'border-[#9db894]');
+            }
         }
 
         document.getElementById('feedback-form').addEventListener('submit', async (e) => {
             e.preventDefault();
-            if (!selectedVerdict) { showToast('Please select a corrected verdict.', 'warning'); return; }
-            if (!lastResult) { showToast('Analyze a file first.', 'warning'); return; }
-            
+            if (!selectedVerdict) {
+                showToast('Please select a Ground Truth verdict.', 'warning');
+                return;
+            }
+            const hash = document.getElementById('fb-hash').value;
+            if (!hash) {
+                showToast('Analyze a file first before submitting calibration.', 'warning');
+                return;
+            }
+
             const payload = {
-                file_hash: document.getElementById('fb-hash').value,
+                file_hash: hash,
                 media_type: document.getElementById('fb-media-type').value,
-                original_verdict: document.getElementById('fb-original-verdict').value,
+                original_verdict: document.getElementById('fb-original-verdict').value.toLowerCase(),
                 corrected_verdict: selectedVerdict,
-                module_scores: lastResult.module_scores || {},
-                flags: lastResult.flags || [],
+                module_scores: lastResult ? lastResult.module_scores : {},
+                flags: lastResult ? lastResult.flags : [],
                 manipulation_type: document.getElementById('fb-manipulation-type').value
             };
-            
+
+            showLoading('SUBMITTING CALIBRATION RECORD...');
             try {
-                const res = await fetch(API_BASE + '/api/feedback', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+                const res = await fetch(API_BASE + '/api/feedback', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
                 const data = await res.json();
                 if (res.ok) {
-                    showToast('Thank you for your feedback.');
-                    navigateTo('upload');
+                    showToast('Calibration record registered successfully.');
+                    navigateTo('learning');
                 } else {
-                    showToast('Error: ' + (data.error || 'Unknown error'), 'error');
+                    showToast('Error: ' + (data.error || 'Submission failed'), 'error');
                 }
-            } catch (err) { showToast('Connection failed.', 'error'); }
+            } catch (err) {
+                showToast('Connection failed.', 'error');
+            } finally {
+                hideLoading();
+            }
         });
 
+        // ═══════════════════════════════════════════════
+        // ADAPTIVE LEARNING
+        // ═══════════════════════════════════════════════
         async function fetchLearningStatus() {
             try {
                 const res = await fetch(API_BASE + '/api/learning/status');
                 const data = await res.json();
-                document.getElementById('lr-feedback').textContent = data.feedback?.total_records ?? '—';
-                document.getElementById('lr-patterns').textContent = data.pattern_memory?.stored_patterns ?? '—';
+                document.getElementById('lr-feedback').textContent = data.feedback?.total_records ?? '0';
+                document.getElementById('lr-patterns').textContent = data.pattern_memory?.stored_patterns ?? '0';
+
                 const ready = data.classifier?.is_ready;
                 document.getElementById('lr-ready').textContent = ready ? 'Yes' : 'No';
-                document.getElementById('lr-ready-dot').className = 'status-dot ' + (ready ? 'online' : '');
-                document.getElementById('lr-accuracy').textContent = ready ? ' (' + (data.classifier.accuracy * 100).toFixed(1) + '%)' : '';
-                document.getElementById('lr-adjusted').textContent = data.adaptive_thresholds?.modules_adjusted ?? '—';
-                
+                document.getElementById('lr-ready').className = 'font-mono-custom text-3xl font-medium ' + (ready ? 'text-[#9db894]' : 'text-[#a09c8f]');
+                document.getElementById('lr-ready-dot').className = 'w-2.5 h-2.5 rounded-full inline-block ' + (ready ? 'bg-[#9db894]' : 'bg-[#a09c8f]');
+                document.getElementById('lr-accuracy').textContent = ready ? `(${(data.classifier.accuracy * 100).toFixed(1)}%)` : '';
+                document.getElementById('lr-adjusted').textContent = data.adaptive_thresholds?.modules_adjusted ?? '0';
+
                 const tbody = document.getElementById('threshold-table-body');
                 tbody.innerHTML = '';
                 const details = data.adaptive_thresholds?.details || {};
                 Object.entries(details).forEach(([mod, info]) => {
                     const tr = document.createElement('tr');
-                    tr.innerHTML = '<td>' + mod + '</td><td>' + (info.authentic_samples || 0) + '</td><td>' + (info.deepfake_samples || 0) + '</td><td>' + (info.adjustment !== undefined ? (info.adjustment >= 0 ? '+' : '') + info.adjustment.toFixed(4) : '—') + '</td>';
+                    const adj = info.adjustment !== undefined ? ((info.adjustment >= 0 ? '+' : '') + info.adjustment.toFixed(4)) : '—';
+                    tr.className = 'hover:bg-[#242423] transition-colors';
+                    tr.innerHTML = `
+                        <td class="py-3 px-3 font-medium text-[#f3eedc]">${mod}</td>
+                        <td class="py-3 px-3 font-tabular">${info.authentic_samples || 0}</td>
+                        <td class="py-3 px-3 font-tabular">${info.deepfake_samples || 0}</td>
+                        <td class="py-3 px-3 text-right font-tabular text-[#e87a62]">${adj}</td>
+                    `;
                     tbody.appendChild(tr);
                 });
-            } catch (err) { console.warn('Could not fetch learning status:', err); }
+            } catch (err) {
+                console.warn('Could not fetch learning status:', err);
+            }
         }
 
         document.getElementById('retrain-btn').addEventListener('click', async () => {
+            showLoading('RETRAINING BAYESIAN CLASSIFIER...');
             try {
-                showToast('Retraining classifier...', 'warning');
                 const res = await fetch(API_BASE + '/api/learning/retrain', { method: 'POST' });
                 const data = await res.json();
-                showToast('Retrain complete. Accuracy: ' + ((data.accuracy || 0) * 100).toFixed(1) + '%');
-                fetchLearningStatus();
-            } catch (err) { showToast('Connection failed.', 'error'); }
+                if (res.ok) {
+                    showToast('Retraining complete. New accuracy: ' + ((data.accuracy || 0) * 100).toFixed(1) + '%');
+                    fetchLearningStatus();
+                } else {
+                    showToast('Retrain error: ' + (data.error || 'Failed'), 'error');
+                }
+            } catch (err) {
+                showToast('Connection failed.', 'error');
+            } finally {
+                hideLoading();
+            }
         });
 
+        // ═══════════════════════════════════════════════
+        // HYPERPARAMETER TUNING
+        // ═══════════════════════════════════════════════
+        let currentConfig = null;
+        const TUNING_SECTIONS = {
+            scoring:  { icon: 'equalizer',   color: '#e87a62', title: 'Scoring & Thresholds' },
+            facial:   { icon: 'face',        color: '#ffb4a4', title: 'Facial Analysis' },
+            temporal: { icon: 'movie',       color: '#f97316', title: 'Temporal / Video Analysis' },
+            audio:    { icon: 'graphic_eq',  color: '#d6d2c0', title: 'Audio Analysis' },
+            gan:      { icon: 'auto_fix',    color: '#eab308', title: 'GAN / AI Artifact Detection' },
+            metadata: { icon: 'description', color: '#9db894', title: 'Metadata & Provenance' },
+        };
+
+        async function fetchConfig() {
+            try {
+                const res = await fetch(API_BASE + '/api/config');
+                const data = await res.json();
+                currentConfig = data.config;
+                renderAllTuningPanels(data.config);
+            } catch (err) {
+                showToast('Failed to load configuration.', 'error');
+            }
+        }
+
+        function renderAllTuningPanels(config) {
+            const container = document.getElementById('tuning-panels-container');
+            container.innerHTML = '';
+
+            Object.entries(TUNING_SECTIONS).forEach(([groupKey, meta]) => {
+                const groupData = config[groupKey];
+                if (!groupData) return;
+
+                const itemsToRender = [];
+                Object.entries(groupData).forEach(([k, v]) => {
+                    if (Array.isArray(v)) return;
+                    if (typeof v === 'object' && v !== null) {
+                        Object.entries(v).forEach(([subK, subV]) => {
+                            itemsToRender.push({ subkey: k, key: subK, val: subV });
+                        });
+                    } else {
+                        itemsToRender.push({ key: k, val: v });
+                    }
+                });
+
+                const section = document.createElement('div');
+                section.className = 'tuning-section';
+                if (groupKey === 'scoring') section.classList.add('open');
+
+                section.innerHTML = `
+                    <div class="tuning-section-header" onclick="this.parentElement.classList.toggle('open')">
+                        <div class="tuning-section-title">
+                            <span class="material-symbols-outlined" style="color: ${meta.color}">${meta.icon}</span>
+                            <h3>${meta.title}</h3>
+                            <span class="param-count-badge">${itemsToRender.length} params</span>
+                        </div>
+                        <span class="material-symbols-outlined tuning-chevron">expand_more</span>
+                    </div>
+                    <div class="tuning-section-body">
+                        <div class="tuning-grid" id="tuning-grid-${groupKey}"></div>
+                    </div>
+                `;
+                container.appendChild(section);
+
+                const grid = section.querySelector('.tuning-grid');
+                itemsToRender.forEach(item => {
+                    grid.appendChild(createParamCard(groupKey, item.key, item.val, item.subkey));
+                });
+            });
+        }
+
+        function createParamCard(group, key, val, subkey = null) {
+            const card = document.createElement('div');
+            card.className = 'param-card';
+            let label = key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+            if (subkey) {
+                const prefix = subkey.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+                label = `${prefix} → ${label}`;
+            }
+            const subkeyAttr = subkey ? `data-subkey="${subkey}"` : '';
+
+            if (typeof val === 'boolean') {
+                card.innerHTML = `
+                    <div class="param-card-header">
+                        <span class="param-name">${label}</span>
+                    </div>
+                    <div class="param-toggle">
+                        <label class="toggle-switch">
+                            <input type="checkbox" class="tuning-input" data-group="${group}" ${subkeyAttr} data-key="${key}" ${val ? 'checked' : ''}>
+                            <span class="toggle-track"></span>
+                        </label>
+                        <span class="toggle-label text-xs font-mono-custom text-[#cac6bc]">${val ? 'Enabled' : 'Disabled'}</span>
+                    </div>
+                `;
+                const cb = card.querySelector('input[type="checkbox"]');
+                cb.addEventListener('change', () => {
+                    card.querySelector('.toggle-label').textContent = cb.checked ? 'Enabled' : 'Disabled';
+                });
+            } else if (typeof val === 'number' && val >= 0 && val <= 1.0 && !Number.isInteger(val)) {
+                card.innerHTML = `
+                    <div class="param-card-header">
+                        <span class="param-name">${label}</span>
+                        <span class="param-value-display">${val.toFixed(2)}</span>
+                    </div>
+                    <input type="range" class="tuning-input" data-group="${group}" ${subkeyAttr} data-key="${key}" min="0" max="1" step="0.01" value="${val}">
+                    <div class="param-range-bounds"><span>0.00</span><span>1.00</span></div>
+                `;
+                const slider = card.querySelector('input[type="range"]');
+                const display = card.querySelector('.param-value-display');
+                slider.addEventListener('input', () => {
+                    display.textContent = parseFloat(slider.value).toFixed(2);
+                });
+            } else if (typeof val === 'number') {
+                card.innerHTML = `
+                    <div class="param-card-header">
+                        <span class="param-name">${label}</span>
+                        <span class="param-value-display">${val}</span>
+                    </div>
+                    <input type="number" class="tuning-input" data-group="${group}" ${subkeyAttr} data-key="${key}" value="${val}" step="any">
+                `;
+                const numInput = card.querySelector('input[type="number"]');
+                const display = card.querySelector('.param-value-display');
+                numInput.addEventListener('input', () => {
+                    display.textContent = numInput.value;
+                });
+            } else {
+                card.innerHTML = `
+                    <div class="param-card-header">
+                        <span class="param-name">${label}</span>
+                    </div>
+                    <input type="text" class="tuning-input" data-group="${group}" ${subkeyAttr} data-key="${key}" value="${val}">
+                `;
+            }
+            return card;
+        }
+
+        async function saveConfig() {
+            const inputs = document.querySelectorAll('.tuning-input');
+            const newConfig = {};
+
+            inputs.forEach(input => {
+                const group = input.dataset.group;
+                const subkey = input.dataset.subkey;
+                const key = input.dataset.key;
+                if (!newConfig[group]) newConfig[group] = {};
+
+                let val;
+                if (input.type === 'checkbox') {
+                    val = input.checked;
+                } else if (input.type === 'range' || input.type === 'number') {
+                    val = parseFloat(input.value);
+                } else {
+                    val = input.value;
+                    if (!isNaN(parseFloat(val)) && isFinite(val)) val = parseFloat(val);
+                }
+
+                if (subkey) {
+                    if (!newConfig[group][subkey]) newConfig[group][subkey] = {};
+                    newConfig[group][subkey][key] = val;
+                } else {
+                    newConfig[group][key] = val;
+                }
+            });
+
+            showLoading('SAVING CONFIGURATION...');
+            try {
+                const res = await fetch(API_BASE + '/api/config', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(newConfig)
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    currentConfig = data.config;
+                    showToast('Engine configuration updated successfully.');
+                } else {
+                    const data = await res.json();
+                    showToast('Error: ' + data.error, 'error');
+                }
+            } catch (err) {
+                showToast('Failed to save configuration.', 'error');
+            } finally {
+                hideLoading();
+            }
+        }
+
+        async function resetConfig() {
+            showLoading('RESTORING FACTORY DEFAULTS...');
+            try {
+                const res = await fetch(API_BASE + '/api/config', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ _reset: true })
+                });
+                if (res.ok) {
+                    showToast('Configuration reset to factory defaults.');
+                    fetchConfig();
+                } else {
+                    showToast('Reset failed.', 'error');
+                }
+            } catch (err) {
+                showToast('Failed to reset configuration.', 'error');
+            } finally {
+                hideLoading();
+            }
+        }
+
+        // ═══════════════════════════════════════════════
+        // SYSTEM HEALTH
+        // ═══════════════════════════════════════════════
         async function fetchHealth() {
             try {
                 const res = await fetch(API_BASE + '/api/health');
                 const data = await res.json();
-                document.getElementById('engine-version').textContent = data.engine || 'unknown';
-            } catch (err) { console.warn('Could not fetch health:', err); }
+                document.getElementById('engine-version').textContent = data.engine || 'deepfake_detection_v2_adaptive';
+                document.getElementById('header-engine-tag').textContent = 'Engine: ' + (data.engine || 'v4.2.1');
+            } catch (err) {
+                console.warn('Could not fetch health:', err);
+            }
         }
 
-        function showLoading() { document.getElementById('loading-overlay').classList.add('active'); }
-        function hideLoading() { document.getElementById('loading-overlay').classList.remove('active'); }
+        // ═══════════════════════════════════════════════
+        // HELPERS
+        // ═══════════════════════════════════════════════
+        function showLoading(msg = 'PROCESSING FORENSIC TELEMETRY...') {
+            document.getElementById('loading-text').textContent = msg;
+            document.getElementById('loading-overlay').classList.add('active');
+        }
+
+        function hideLoading() {
+            document.getElementById('loading-overlay').classList.remove('active');
+        }
 
         function showToast(message, type = 'success') {
             const container = document.getElementById('toast-container');
             const toast = document.createElement('div');
             toast.className = 'toast';
             if (type === 'error') {
-                toast.style.borderLeftColor = 'var(--error)';
+                toast.style.borderLeftColor = '#ffb4ab';
             } else if (type === 'warning') {
-                toast.style.borderLeftColor = '#ffb74d';
+                toast.style.borderLeftColor = '#d9a441';
+            } else {
+                toast.style.borderLeftColor = '#e87a62';
             }
-            
+
             const icon = document.createElement('span');
             icon.className = 'material-symbols-outlined';
             if (type === 'error') {
-                icon.style.color = 'var(--error)';
+                icon.style.color = '#ffb4ab';
                 icon.textContent = 'error';
             } else if (type === 'warning') {
-                icon.style.color = '#ffb74d';
+                icon.style.color = '#d9a441';
                 icon.textContent = 'warning';
             } else {
-                icon.style.color = 'var(--primary)';
-                icon.textContent = 'check_circle';
+                icon.style.color = '#e87a62';
+                icon.textContent = 'verified';
             }
-            
+
             const text = document.createElement('span');
             text.textContent = message;
-            
+
             toast.appendChild(icon);
             toast.appendChild(text);
             container.appendChild(toast);
-            
+
             setTimeout(() => {
                 toast.classList.add('hiding');
-                setTimeout(() => toast.remove(), 300);
-            }, 3000);
+                setTimeout(() => toast.remove(), 250);
+            }, 3200);
         }
 
+        // Initialize on load
         fetchHealth();
     </script>
 </body>

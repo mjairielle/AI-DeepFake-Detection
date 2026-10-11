@@ -59,6 +59,12 @@ class GANArtifactAnalyzer:
         scores.append(es_score)
         flags.extend(es_flags)
 
+        # DCT block analysis
+        if getattr(self.p, 'dct_block_analysis', True):
+            dct_score, dct_flags = self._dct_check(gray)
+            scores.append(dct_score)
+            flags.extend(dct_flags)
+
         return float(np.mean(scores)), flags
 
     def _fft_check(self, gray):
@@ -158,3 +164,45 @@ class GANArtifactAnalyzer:
         else:
             score = 0.0
         return min(float(score), 1.0), flags
+
+    def _dct_check(self, gray: np.ndarray) -> Tuple[float, List[str]]:
+        """
+        8x8 DCT Block analysis.
+        Detects double-JPEG compression anomalies, periodic grid traces,
+        and abnormal AC coefficient distributions common in synthetic generators.
+        """
+        h, w = gray.shape
+        block = 8
+        if h < block * 2 or w < block * 2:
+            return 0.0, []
+
+        ac_coeffs = []
+        # Sample non-overlapping 8x8 blocks across the image
+        step = max(block, (min(h, w) // 16))
+        for i in range(0, h - block + 1, step):
+            for j in range(0, w - block + 1, step):
+                blk = gray[i:i+block, j:j+block].astype(np.float32)
+                dct_blk = cv2.dct(blk)
+                # Ignore DC coefficient (top-left) and collect AC coefficients
+                ac_vals = dct_blk.flatten()[1:]
+                ac_coeffs.extend(ac_vals)
+
+        if len(ac_coeffs) < 64:
+            return 0.0, []
+
+        ac_coeffs = np.array(ac_coeffs)
+        ac_std = float(np.std(ac_coeffs))
+        ac_mean_abs = float(np.mean(np.abs(ac_coeffs)))
+        ratio = _safe_div(ac_std, ac_mean_abs, 1.0)
+
+        flags = []
+        score = 0.0
+        if ratio < 1.15:
+            score = min((1.15 - ratio) / 0.5, 1.0)
+            flags.append("dct_coefficient_anomaly")
+        elif ratio > 3.5:
+            score = min((ratio - 3.5) / 2.0, 1.0)
+            flags.append("dct_periodic_frequency_anomaly")
+
+        return float(score), flags
+

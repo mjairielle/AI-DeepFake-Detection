@@ -171,11 +171,23 @@ class DeepfakeDetector:
             total_w += w
 
         probability = weighted_sum / total_w if total_w else 0.0
+
+        # Outlier / forensic indicator calibration:
+        # If any module detects manipulation with high severity (>0.85) accompanied by multiple
+        # flags, elevate probability to prevent dilution from unaffected modalities.
+        max_module_score = max(adaptive_scores.values()) if adaptive_scores else 0.0
+        if max_module_score > 0.85 and len(flags) >= 2:
+            probability = max(probability, 0.70 * probability + 0.30 * max_module_score)
+
         probability = max(0.0, min(1.0, probability))
 
         score_vals = list(adaptive_scores.values())
         if len(score_vals) > 1:
             agreement = 1.0 - float(np.std(score_vals))
+            # High certainty cases (strongly deepfake or definitively authentic) shouldn't be
+            # unduly penalized by natural modality variance (e.g., untagged metadata = 0.0)
+            if probability > 0.75 or probability < 0.20:
+                agreement = max(agreement, 0.70)
         else:
             agreement = 0.5
         confidence = max(0.0, min(1.0, agreement))
@@ -212,17 +224,24 @@ class DeepfakeDetector:
 
     def _infer_manipulation(self, flags):
         flag_set = set(flags)
-        if "blending_boundary_detected" in flag_set:
+        # Face Swap indicators
+        if "blending_boundary_detected" in flag_set or "face_bg_color_mismatch" in flag_set or "ela_manipulation_detected" in flag_set:
             return ManipulationType.FACE_SWAP.value
-        if "face_bg_color_mismatch" in flag_set:
-            return ManipulationType.FACE_SWAP.value
-        if "monotone_pitch_detected" in flag_set:
+        # Lip sync indicators
+        if "teeth_detail_anomaly" in flag_set or "lip_sync_mismatch" in flag_set:
+            return ManipulationType.LIP_SYNC.value
+        # Re-enactment indicators
+        if "facial_asymmetry_anomaly" in flag_set or "head_pose_anomaly" in flag_set:
+            return ManipulationType.FACE_REENACTMENT.value
+        # Voice clone indicators
+        if "monotone_pitch_detected" in flag_set or "voice_clone_detected" in flag_set:
             return ManipulationType.VOICE_CLONE.value
+        # Full synthesis indicators (diffusion / GAN generated)
         if "ai_tool_in_exif" in flag_set or any("ai_signature" in f for f in flags):
             return ManipulationType.FULL_SYNTHESIS.value
-        if "fft_grid_artifact" in flag_set:
+        if "fft_grid_artifact" in flag_set or "dct_coefficient_anomaly" in flag_set or "dct_periodic_frequency_anomaly" in flag_set:
             return ManipulationType.FULL_SYNTHESIS.value
-        if "low_color_entropy" in flag_set:
+        if "low_color_entropy" in flag_set or "skin_over_smoothed" in flag_set or "low_skin_texture_detail" in flag_set:
             return ManipulationType.FULL_SYNTHESIS.value
         return ManipulationType.UNKNOWN.value
 

@@ -110,3 +110,27 @@ def test_xss_feedback_payload(client):
     response = client.post('/api/feedback', json=payload, environ_base={'REMOTE_ADDR': '10.0.0.4'})
     assert response.status_code == 400
     assert "error" in response.get_json()
+
+def test_post_config_update(client):
+    payload = {
+        "scoring": {
+            "authentic_max_score": 0.25,
+            "suspicious_max_score": 0.65
+        }
+    }
+    response = client.post('/api/config', json=payload, environ_base={'REMOTE_ADDR': '10.0.0.5'})
+    assert response.status_code == 200
+    data = response.get_json()
+    assert data['status'] == 'success'
+    assert data['config']['scoring']['authentic_max_score'] == 0.25
+
+def test_post_config_reset(client):
+    response = client.post('/api/config', json={"_reset": True}, environ_base={'REMOTE_ADDR': '10.0.0.6'})
+    assert response.status_code == 200
+    data = response.get_json()
+    assert data['status'] == 'reset'
+    assert 'config' in data
+    # Authentic max score should be restored to default 0.30
+    assert data['config']['scoring']['authentic_max_score'] == 0.30
+
+

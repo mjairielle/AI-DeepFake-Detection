@@ -86,6 +86,24 @@ class TestFacialAnalyzer:
         assert isinstance(flags, list)
         assert 0.0 <= score <= 1.0
 
+    def test_ela_analysis(self):
+        roi = np.random.randint(0, 255, (64, 64, 3), dtype=np.uint8)
+        ela_score = self.analyzer._ela_analysis(roi)
+        assert isinstance(ela_score, float)
+        assert 0.0 <= ela_score <= 1.0
+
+    def test_pore_visibility(self):
+        roi = np.random.randint(0, 255, (64, 64, 3), dtype=np.uint8)
+        pore_score = self.analyzer._pore_visibility(roi)
+        assert isinstance(pore_score, float)
+        assert 0.0 <= pore_score <= 1.0
+
+    def test_teeth_detail(self):
+        roi = np.zeros((64, 64, 3), dtype=np.uint8)
+        teeth_score = self.analyzer._teeth_detail(roi)
+        assert isinstance(teeth_score, float)
+        assert 0.0 <= teeth_score <= 1.0
+
 
 # ---------------------------------------------------------------------------
 #  2. Temporal Analyzer
@@ -200,6 +218,13 @@ class TestGANArtifactAnalyzer:
         bgr = np.random.randint(0, 255, (128, 128, 3), dtype=np.uint8)
         score, flags = analyzer.analyze_image(bgr)
         assert isinstance(score, float)
+
+    def test_dct_check(self):
+        gray = np.random.randint(0, 255, (128, 128), dtype=np.uint8)
+        score, flags = self.analyzer._dct_check(gray)
+        assert isinstance(score, float)
+        assert 0.0 <= score <= 1.0
+        assert isinstance(flags, list)
 
 
 # ---------------------------------------------------------------------------
