@@ -96,23 +96,27 @@ class FeedbackStore:
     def get_labeled_data(self) -> Tuple[np.ndarray, np.ndarray]:
         """Return (X, y) arrays for classifier training.
         y: 0=authentic, 1=deepfake."""
+        X, y, _ = self.get_labeled_data_with_keys()
+        return X, y
+
+    def get_labeled_data_with_keys(self) -> Tuple[np.ndarray, np.ndarray, List[str]]:
+        """Return (X, y, feature_keys) aligned by module name across all records."""
         recs = self.records
         if not recs:
-            return np.empty((0, 0)), np.empty(0)
+            return np.empty((0, 0)), np.empty(0), []
 
-        X_list, y_list = [], []
-        for rec in recs:
-            vec = rec.feature_vector()
-            if len(vec) == 0:
-                continue
+        valid_recs = [rec for rec in recs if rec.module_scores]
+        if not valid_recs:
+            return np.empty((0, 0)), np.empty(0), []
+
+        feature_keys = sorted({k for rec in valid_recs for k in rec.module_scores.keys()})
+        X_list = []
+        y_list = []
+        for rec in valid_recs:
+            vec = np.array([rec.module_scores.get(k, 0.0) for k in feature_keys], dtype=np.float64)
             X_list.append(vec)
             y_list.append(1.0 if rec.corrected_verdict == "deepfake" else 0.0)
 
-        if not X_list:
-            return np.empty((0, 0)), np.empty(0)
-
-        # Pad to same length
-        max_len = max(len(v) for v in X_list)
-        X = np.array([np.pad(v, (0, max_len - len(v))) for v in X_list])
-        y = np.array(y_list)
-        return X, y
+        X = np.array(X_list, dtype=np.float64)
+        y = np.array(y_list, dtype=np.float64)
+        return X, y, feature_keys

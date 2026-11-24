@@ -917,6 +917,15 @@
         let selectedFile = null;
         let selectedBatchFiles = [];
 
+        function escapeHtml(str) {
+            return String(str ?? '')
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
+
         // ═══════════════════════════════════════════════
         // NAVIGATION
         // ═══════════════════════════════════════════════
@@ -1146,7 +1155,7 @@
                 row.className = 'py-2 flex items-start gap-2.5 border-b border-[rgba(227,223,207,0.06)] last:border-0';
                 row.innerHTML = `
                     <span class="material-symbols-outlined text-[#e87a62] text-sm mt-0.5" data-icon="warning">warning</span>
-                    <span class="text-xs text-[#f3eedc] font-mono-custom">${f.replace(/_/g, ' ')}</span>
+                    <span class="text-xs text-[#f3eedc] font-mono-custom">${escapeHtml(String(f).replace(/_/g, ' '))}</span>
                 `;
                 flagsContainer.appendChild(row);
             });
@@ -1195,7 +1204,7 @@
                     card.innerHTML = `
                         <span class="material-symbols-outlined text-[#e87a62] text-sm mt-0.5">policy</span>
                         <div>
-                            <span class="font-mono-custom text-xs font-semibold text-[#f3eedc] block">${f.toUpperCase().replace(/_/g, ' ')}</span>
+                            <span class="font-mono-custom text-xs font-semibold text-[#f3eedc] block">${escapeHtml(String(f).toUpperCase().replace(/_/g, ' '))}</span>
                             <span class="text-[11px] text-[#a09c8f]">Forensic marker flagged by neural analyzer pass.</span>
                         </div>
                     `;
@@ -1270,7 +1279,7 @@
                 chip.innerHTML = `
                     <div class="flex items-center gap-2 overflow-hidden truncate">
                         <span class="material-symbols-outlined text-[#a09c8f] text-sm">attachment</span>
-                        <span class="font-mono-custom text-[#f3eedc] truncate">${f.name}</span>
+                        <span class="font-mono-custom text-[#f3eedc] truncate">${escapeHtml(f.name)}</span>
                     </div>
                     <button class="text-[#a09c8f] hover:text-[#e87a62] p-1" onclick="removeBatchFile(${idx})">
                         <span class="material-symbols-outlined text-xs">close</span>
@@ -1331,9 +1340,9 @@
                 tr.className = 'hover:bg-[#242423] transition-colors';
                 tr.innerHTML = `
                     <td class="py-3 px-3 text-[#a09c8f]">${idx + 1}</td>
-                    <td class="py-3 px-3 font-medium text-[#f3eedc]">${r.original_filename || '—'}</td>
-                    <td class="py-3 px-3 uppercase text-[11px] text-[#a09c8f]">${r.media_type || '—'}</td>
-                    <td class="py-3 px-3"><span class="verdict-tag ${v}">${v}</span></td>
+                    <td class="py-3 px-3 font-medium text-[#f3eedc]">${escapeHtml(r.original_filename || '—')}</td>
+                    <td class="py-3 px-3 uppercase text-[11px] text-[#a09c8f]">${escapeHtml(r.media_type || '—')}</td>
+                    <td class="py-3 px-3"><span class="verdict-tag ${escapeHtml(v)}">${escapeHtml(v)}</span></td>
                     <td class="py-3 px-3 text-right font-tabular">${r.deepfake_probability !== undefined ? (r.deepfake_probability * 100).toFixed(1) + '%' : '—'}</td>
                     <td class="py-3 px-3 text-right font-tabular">${r.confidence !== undefined ? (r.confidence * 100).toFixed(1) + '%' : '—'}</td>
                     <td class="py-3 px-3 text-right font-tabular text-[#a09c8f]">${r.processing_time_ms !== undefined ? Math.round(r.processing_time_ms) + 'ms' : '—'}</td>

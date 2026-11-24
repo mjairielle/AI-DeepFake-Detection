@@ -2,6 +2,7 @@
 Adaptive Classifier — ML model retrained on feedback
 """
 import os
+import math
 import logging
 import threading
 from typing import Dict, List, Optional
@@ -10,6 +11,7 @@ import numpy as np
 
 from learning_engine.config import DATA_DIR
 from learning_engine.feedback import FeedbackStore
+from security import DataIntegrity
 
 logger = logging.getLogger("learning_engine")
 
@@ -37,12 +39,17 @@ class AdaptiveClassifier:
     def _load_model(self):
         if os.path.exists(self.model_path):
             try:
+                if not DataIntegrity.verify_file(self.model_path):
+                    logger.warning("Classifier signature verification failed for %s — refusing to load",
+                                   self.model_path)
+                    return
                 import pickle
                 with open(self.model_path, "rb") as f:
                     saved = pickle.load(f)
                 self.model = saved["model"]
-                self.feature_keys = saved["feature_keys"]
-                self.accuracy = saved.get("accuracy", 0.0)
+                self.feature_keys = saved.get("feature_keys", [])
+                acc = float(saved.get("accuracy", 0.0))
+                self.accuracy = 0.0 if math.isnan(acc) else acc
                 self.train_size = saved.get("train_size", 0)
                 self.is_ready = True
                 logger.info("Loaded adaptive classifier (accuracy=%.2f, samples=%d)",
@@ -59,6 +66,7 @@ class AdaptiveClassifier:
                 "accuracy": self.accuracy,
                 "train_size": self.train_size,
             }, f)
+        DataIntegrity.sign_file(self.model_path)
 
     def notify_feedback(self, store: FeedbackStore):
         """Called after new feedback. Triggers retrain if needed."""
@@ -70,7 +78,7 @@ class AdaptiveClassifier:
 
     def train(self, store: FeedbackStore):
         """(Re)train the classifier on all available feedback."""
-        X, y = store.get_labeled_data()
+        X, y, feature_keys = store.get_labeled_data_with_keys()
         if len(X) < self.MIN_SAMPLES_TO_TRAIN:
             logger.info("Not enough samples to train (%d < %d)",
                          len(X), self.MIN_SAMPLES_TO_TRAIN)
@@ -93,22 +101,26 @@ class AdaptiveClassifier:
                     random_state=42,
                 )
 
-                # Cross-validated accuracy estimate
-                if len(X) >= 20:
-                    cv_scores = cross_val_score(clf, X, y, cv=min(5, len(X)//4))
-                    self.accuracy = float(cv_scores.mean())
-                else:
-                    self.accuracy = 0.0
-
                 # Train on full dataset
                 clf.fit(X, y)
+
+                # Cross-validated accuracy estimate when both classes have enough members
+                class_counts = np.bincount(y.astype(int))
+                min_class_count = int(class_counts.min())
+                cv_folds = min(5, len(X) // 4, min_class_count)
+                if len(X) >= 20 and cv_folds >= 2:
+                    cv_scores = cross_val_score(clf, X, y, cv=cv_folds)
+                    cv_mean = float(np.nanmean(cv_scores))
+                    self.accuracy = 0.0 if math.isnan(cv_mean) else round(cv_mean, 4)
+                else:
+                    # Conservative estimate for small or heavily imbalanced datasets (10-19 samples)
+                    train_acc = float(clf.score(X, y))
+                    self.accuracy = round(min(0.5, train_acc * 0.5), 4)
+
                 self.model = clf
                 self.train_size = len(X)
+                self.feature_keys = feature_keys
                 self.is_ready = True
-
-                # Derive feature keys from first record
-                if store.records:
-                    self.feature_keys = sorted(store.records[0].module_scores.keys())
 
                 self._save_model()
 
@@ -125,11 +137,16 @@ class AdaptiveClassifier:
         Get adaptive classifier's prediction.
         Returns {probability, verdict, confidence} or None if not ready.
         """
-        if not self.is_ready or self.model is None:
+        if not self.is_ready or self.model is None or not module_scores:
             return None
 
-        keys = sorted(module_scores.keys())
-        vec = np.array([module_scores.get(k, 0.0) for k in keys]).reshape(1, -1)
+        if self.feature_keys:
+            if not any(k in module_scores for k in self.feature_keys):
+                return None
+            vec = np.array([module_scores.get(k, 0.0) for k in self.feature_keys], dtype=np.float64).reshape(1, -1)
+        else:
+            keys = sorted(module_scores.keys())
+            vec = np.array([module_scores.get(k, 0.0) for k in keys], dtype=np.float64).reshape(1, -1)
 
         # Pad/trim to match training feature count
         expected = self.model.n_features_in_
@@ -143,10 +160,11 @@ class AdaptiveClassifier:
                 proba = self.model.predict_proba(vec)[0]
 
             fake_prob = float(proba[1]) if len(proba) > 1 else float(proba[0])
+            conf = 0.0 if math.isnan(self.accuracy) else round(self.accuracy, 4)
             return {
                 "ml_probability": round(fake_prob, 4),
                 "ml_verdict": "deepfake" if fake_prob > 0.5 else "authentic",
-                "ml_confidence": round(self.accuracy, 4),
+                "ml_confidence": conf,
                 "train_samples": self.train_size,
             }
         except Exception as e:

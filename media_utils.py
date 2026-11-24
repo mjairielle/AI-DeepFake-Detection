@@ -23,11 +23,16 @@ def detect_media_type(path: str) -> MediaType:
 def extract_frames(video_path: str, fps: int = 10,
                    max_frames: int = 300) -> list:
     """Sample frames from a video at the given FPS."""
+    if fps is None or fps <= 0:
+        raise ValueError(f"fps must be positive, got {fps}")
+
     cap = cv2.VideoCapture(video_path)
     if not cap.isOpened():
         raise IOError(f"Cannot open video: {video_path}")
 
-    video_fps = cap.get(cv2.CAP_PROP_FPS) or 30
+    video_fps = cap.get(cv2.CAP_PROP_FPS)
+    if not video_fps or video_fps != video_fps or video_fps <= 0:
+        video_fps = 30.0
     interval = max(int(video_fps / fps), 1)
     frames = []
     idx = 0

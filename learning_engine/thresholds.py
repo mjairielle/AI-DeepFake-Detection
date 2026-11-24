@@ -71,14 +71,17 @@ class AdaptiveThresholds:
                         a_scores.append(score)
                         stat_record.auth_scores = a_scores[-499:]
 
-                    # Recompute adjustment for this module
+                    # Recompute adjustment for this module only when deepfake scores exceed authentic scores
                     a_s = stat_record.auth_scores
                     f_s = stat_record.fake_scores
                     if len(a_s) >= 3 and len(f_s) >= 3:
-                        auth_mean = np.mean(a_s)
-                        fake_mean = np.mean(f_s)
-                        midpoint = float((auth_mean + fake_mean) / 2)
-                        stat_record.adjustment = midpoint
+                        auth_mean = float(np.mean(a_s))
+                        fake_mean = float(np.mean(f_s))
+                        if fake_mean > auth_mean:
+                            midpoint = float((auth_mean + fake_mean) / 2)
+                            stat_record.adjustment = midpoint
+                        else:
+                            stat_record.adjustment = 0.0
                 
                 db.commit()
 

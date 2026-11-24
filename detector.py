@@ -97,7 +97,12 @@ class DeepfakeDetector:
         )
 
     def _analyze_video(self, path, fhash, t0):
-        frames = extract_frames(path, self.config.temporal.analysis_fps)
+        try:
+            frames = extract_frames(path, self.config.temporal.analysis_fps)
+        except (IOError, OSError, ValueError) as e:
+            logger.warning("Video load failed for %s: %s", os.path.basename(path), e)
+            return self._error_result(MediaType.VIDEO, fhash, t0,
+                                      "video_load_failed")
         if not frames:
             return self._error_result(MediaType.VIDEO, fhash, t0,
                                       "no_frames_extracted")
@@ -146,10 +151,8 @@ class DeepfakeDetector:
         module_scores: Dict[str, float] = {}
         all_flags = []
 
-        s, f = self.audio.analyze(path)
-        module_scores["spectral_analysis"] = s
-        module_scores["prosody_analysis"] = s
-        module_scores["voice_clone_detect"] = s
+        _, sub_scores, f = self.audio.analyze_detailed(path)
+        module_scores.update(sub_scores)
         all_flags.extend(f)
 
         s2, f2 = self.metadata.analyze(path)
@@ -164,6 +167,8 @@ class DeepfakeDetector:
 
     def _build_result(self, media_type, module_scores, weights,
                       flags, fhash, t0):
+        # Deduplicate flags before scoring so repeated keyframe flags don't inflate boosts
+        unique_flags = list(dict.fromkeys(flags))
         adaptive_scores, learning_meta = self.learner.enhance_scores(module_scores)
 
         total_w = 0.0
@@ -177,16 +182,16 @@ class DeepfakeDetector:
 
         # Outlier / forensic indicator calibration:
         # If any module detects manipulation with high severity (>0.85) accompanied by multiple
-        # flags, elevate probability to prevent dilution from unaffected modalities.
+        # unique flags, elevate probability to prevent dilution from unaffected modalities.
         face_swap_flags = {"blending_boundary_detected", "face_bg_color_mismatch", "ela_manipulation_detected", "face_bg_noise_mismatch"}
-        has_face_swap_indicator = any(f in face_swap_flags for f in flags)
+        has_face_swap_indicator = any(f in face_swap_flags for f in unique_flags)
 
         max_module_score = max(adaptive_scores.values()) if adaptive_scores else 0.0
-        if max_module_score > 0.85 and len(flags) >= 2:
+        if max_module_score > 0.85 and len(unique_flags) >= 2:
             probability = max(probability, 0.70 * probability + 0.30 * max_module_score)
         elif has_face_swap_indicator and max_module_score > 0.35:
             probability = max(probability, 0.35 * probability + 0.65 * max_module_score)
-        elif max_module_score > 0.40 and len(flags) >= 3:
+        elif max_module_score > 0.40 and len(unique_flags) >= 3:
             probability = max(probability, 0.65 * probability + 0.35 * max_module_score)
 
         probability = max(0.0, min(1.0, probability))
@@ -204,7 +209,8 @@ class DeepfakeDetector:
 
         if learning_meta.get("pattern_match"):
             confidence = min(1.0, confidence + 0.1)
-            flags.append("matched_known_deepfake_pattern")
+            if "matched_known_deepfake_pattern" not in unique_flags:
+                unique_flags.append("matched_known_deepfake_pattern")
 
         sc = self.config.scoring
         if confidence < sc.min_confidence_for_verdict:
@@ -219,7 +225,7 @@ class DeepfakeDetector:
         if verdict == Verdict.AUTHENTIC.value:
             manip = ManipulationType.UNKNOWN.value
         else:
-            manip = self._infer_manipulation(flags)
+            manip = self._infer_manipulation(unique_flags)
 
         elapsed = (time.perf_counter() - t0) * 1000
 
@@ -230,7 +236,7 @@ class DeepfakeDetector:
             confidence=round(confidence, 4),
             manipulation_type=manip,
             module_scores={k: round(v, 4) for k, v in adaptive_scores.items()},
-            flags=list(set(flags)),
+            flags=unique_flags,
             processing_time_ms=round(elapsed, 1),
             file_hash=fhash,
         )
@@ -250,7 +256,7 @@ class DeepfakeDetector:
         if "monotone_pitch_detected" in flag_set or "voice_clone_detected" in flag_set:
             return ManipulationType.VOICE_CLONE.value
         # Full synthesis indicators (diffusion / GAN generated)
-        if "ai_tool_in_exif" in flag_set or any("ai_signature" in f for f in flags):
+        if any(f.startswith("ai_tool_in_exif") for f in flag_set) or any("ai_signature" in f for f in flag_set):
             return ManipulationType.FULL_SYNTHESIS.value
         if "fft_grid_artifact" in flag_set or "dct_coefficient_anomaly" in flag_set or "dct_periodic_frequency_anomaly" in flag_set:
             return ManipulationType.FULL_SYNTHESIS.value

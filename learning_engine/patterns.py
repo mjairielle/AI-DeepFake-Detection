@@ -44,6 +44,8 @@ class PatternMemory:
     def add_pattern(self, module_scores: Dict[str, float],
                     manipulation_type: str, flags: List[str]):
         """Store a confirmed deepfake's feature vector."""
+        if not module_scores:
+            return
         from learning_engine.db import PatternDB
         keys = sorted(module_scores.keys())
         vector = [module_scores[k] for k in keys]
@@ -66,42 +68,54 @@ class PatternMemory:
                      threshold: float = 0.85) -> Optional[Dict]:
         """Check if current scores are similar to any known deepfake pattern.
         Returns the best match or None."""
+        if not module_scores:
+            return None
         current_patterns = self.patterns
         if not current_patterns:
             return None
 
-        keys = sorted(module_scores.keys())
-        query = np.array([module_scores.get(k, 0.0) for k in keys])
+        query_keys = set(module_scores.keys())
+        query_vals = np.array([module_scores[k] for k in sorted(query_keys)], dtype=np.float64)
 
         # Authentic media with low overall scores should not match deepfake patterns
-        if float(np.mean(query)) < 0.20 and float(np.linalg.norm(query)) < 0.25:
+        if float(np.mean(query_vals)) < 0.20 and float(np.linalg.norm(query_vals)) < 0.25:
             return None
 
         best_sim = 0.0
         best_match = None
 
         for pat in current_patterns:
-            pat_vec = np.array(pat["vector"])
-            # Align vectors to same length
-            max_len = max(len(query), len(pat_vec))
-            q = np.pad(query, (0, max(0, max_len - len(query))))
-            p = np.pad(pat_vec, (0, max(0, max_len - len(pat_vec))))
+            pat_keys = pat.get("keys") or []
+            pat_vec = pat.get("vector") or []
+            if not pat_keys or len(pat_keys) != len(pat_vec):
+                continue
+
+            pat_map = dict(zip(pat_keys, pat_vec))
+            pat_key_set = set(pat_keys)
+            overlap = query_keys & pat_key_set
+            # Require meaningful key overlap so different media modalities never falsely match
+            if not overlap or len(overlap) < 0.5 * max(len(query_keys), len(pat_key_set)):
+                continue
+
+            aligned_keys = sorted(query_keys | pat_key_set)
+            q = np.array([module_scores.get(k, 0.0) for k in aligned_keys], dtype=np.float64)
+            p = np.array([pat_map.get(k, 0.0) for k in aligned_keys], dtype=np.float64)
 
             # Cosine similarity with directional fingerprint alignment
             dot = np.dot(q, p)
-            norm = np.linalg.norm(q) * np.linalg.norm(p)
+            q_norm = np.linalg.norm(q)
+            p_norm = np.linalg.norm(p)
+            norm = q_norm * p_norm
             cos_sim = dot / norm if norm > 1e-10 else 0.0
 
             # Only penalize if query has significantly lower energy than the deepfake pattern
-            q_norm = np.linalg.norm(q)
-            p_norm = np.linalg.norm(p)
             sim = cos_sim if q_norm >= p_norm else cos_sim * (q_norm / max(p_norm, 1e-5))
 
             if sim > best_sim:
                 best_sim = sim
                 best_match = pat
 
-        if best_sim >= threshold:
+        if best_sim >= threshold and best_match is not None:
             return {
                 "similarity": round(float(best_sim), 4),
                 "matched_type": best_match["manipulation_type"],

@@ -314,14 +314,31 @@ class DeepfakeDetectionConfig:
     def from_json(cls, json_str: str) -> "DeepfakeDetectionConfig":
         """Deserialize a JSON string back into a config object."""
         data = json.loads(json_str)
-        return cls(
-            facial=FacialAnalysisParams(**data.get("facial", {})),
-            temporal=TemporalAnalysisParams(**data.get("temporal", {})),
-            audio=AudioAnalysisParams(**data.get("audio", {})),
-            gan=GANArtifactParams(**data.get("gan", {})),
-            metadata=MetadataForensicsParams(**data.get("metadata", {})),
-            scoring=ScoringConfig(**data.get("scoring", {})),
-        )
+        gan_data = dict(data.get("gan", {}))
+        if "edge_response_sharpness_range" in gan_data and isinstance(gan_data["edge_response_sharpness_range"], list):
+            gan_data["edge_response_sharpness_range"] = tuple(gan_data["edge_response_sharpness_range"])
+
+        kwargs = {
+            "facial": FacialAnalysisParams(**data.get("facial", {})),
+            "temporal": TemporalAnalysisParams(**data.get("temporal", {})),
+            "audio": AudioAnalysisParams(**data.get("audio", {})),
+            "gan": GANArtifactParams(**gan_data),
+            "metadata": MetadataForensicsParams(**data.get("metadata", {})),
+            "scoring": ScoringConfig(**data.get("scoring", {})),
+        }
+        for global_key in (
+            "max_file_size_mb",
+            "supported_image_formats",
+            "supported_video_formats",
+            "supported_audio_formats",
+            "gpu_acceleration",
+            "batch_processing",
+            "max_concurrent_analyses",
+            "log_level",
+        ):
+            if global_key in data:
+                kwargs[global_key] = data[global_key]
+        return cls(**kwargs)
 
 
 # ─────────────────────────────────────────────────────────────────────────────

@@ -20,7 +20,8 @@ class TemporalAnalyzer:
         self.p = params
 
     def analyze(self, frames: List[np.ndarray]) -> Tuple[float, List[str]]:
-        if len(frames) < self.p.min_frames_required:
+        min_required = max(2, int(self.p.min_frames_required))
+        if len(frames) < min_required:
             return 0.0, ["insufficient_frames"]
 
         flags = []
@@ -54,6 +55,8 @@ class TemporalAnalyzer:
         return float(np.mean(scores)), flags
 
     def _detect_flicker(self, frames):
+        if len(frames) < 2:
+            return 0.0
         luminances = [cv2.cvtColor(f, cv2.COLOR_BGR2GRAY).mean() for f in frames]
         diffs = np.abs(np.diff(luminances))
         return float(diffs.mean() / 255.0)
@@ -84,7 +87,13 @@ class TemporalAnalyzer:
         scores = []
         for f in frames[::max(1, len(frames)//5)]:
             gray = cv2.cvtColor(f, cv2.COLOR_BGR2GRAY).astype(float)
-            dct = cv2.dct(gray[:8*(gray.shape[0]//8), :8*(gray.shape[1]//8)])
+            h8 = 8 * (gray.shape[0] // 8)
+            w8 = 8 * (gray.shape[1] // 8)
+            if h8 < 8 or w8 < 8:
+                continue
+            dct = cv2.dct(gray[:h8, :w8])
+            if dct is None:
+                continue
             high_freq = np.abs(dct[dct.shape[0]//2:, dct.shape[1]//2:]).mean()
             low_freq = np.abs(dct[:dct.shape[0]//2, :dct.shape[1]//2]).mean()
             ratio = _safe_div(high_freq, low_freq, 0.5)

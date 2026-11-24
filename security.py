@@ -25,7 +25,14 @@ _KEY_PATH = os.path.join(os.path.dirname(__file__), "learning_data", ".hmac_key"
 
 
 def _get_hmac_key() -> bytes:
-    """Load or generate a persistent HMAC key."""
+    """Load HMAC key from HMAC_SECRET_KEY env var or persistent key file."""
+    env_key = os.environ.get("HMAC_SECRET_KEY", "").strip()
+    if env_key:
+        try:
+            return bytes.fromhex(env_key)
+        except ValueError:
+            return hashlib.sha256(env_key.encode("utf-8")).digest()
+
     os.makedirs(os.path.dirname(_KEY_PATH), exist_ok=True)
     if os.path.exists(_KEY_PATH):
         with open(_KEY_PATH, "rb") as f:
@@ -52,21 +59,32 @@ MAGIC_BYTES = {
     ".bmp":  [b"BM"],
     ".tiff": [b"II\x2a\x00", b"MM\x00\x2a"],
     # Video
-    ".mp4":  [b"\x00\x00\x00\x18ftypmp4", b"\x00\x00\x00\x1cftypisom",
-              b"\x00\x00\x00\x20ftypisom", b"\x00\x00\x00"],
+    ".mp4":  [b"ftyp"],
     ".avi":  [b"RIFF"],
-    ".mov":  [b"\x00\x00\x00\x14ftypqt", b"\x00\x00\x00"],
+    ".mov":  [b"ftyp", b"moov", b"mdat", b"wide", b"free"],
     ".mkv":  [b"\x1a\x45\xdf\xa3"],
     ".webm": [b"\x1a\x45\xdf\xa3"],
     # Audio
     ".wav":  [b"RIFF"],
-    ".mp3":  [b"\xff\xfb", b"\xff\xf3", b"\xff\xf2", b"ID3"],
+    ".mp3":  [b"\xff\xfb", b"\xff\xf3", b"\xff\xf2", b"\xff\xfa", b"\xff\xe3", b"ID3"],
     ".flac": [b"fLaC"],
     ".ogg":  [b"OggS"],
     ".aac":  [b"\xff\xf1", b"\xff\xf9"],
-    ".m4a":  [b"\x00\x00\x00\x18ftypM4A", b"\x00\x00\x00\x20ftypM4A",
-              b"\x00\x00\x00"],
+    ".m4a":  [b"ftyp"],
 }
+
+# RIFF subtype markers at bytes 8..12
+RIFF_SUBTYPES = {
+    ".webp": b"WEBP",
+    ".avi":  b"AVI ",
+    ".wav":  b"WAVE",
+}
+
+# ISO BMFF extensions where box type sits at bytes 4..8
+ISO_BMFF_EXTS = {".mp4", ".mov", ".m4a"}
+
+# Intermediate filename tokens that are common TLDs rather than double-extension attacks
+INTERMEDIATE_SAFE_TOKENS = {".com"}
 
 # Dangerous patterns in filenames
 DANGEROUS_FILENAME_PATTERNS = [
@@ -94,22 +112,29 @@ class FileSanitizer:
 
     def validate(self, file_path: str, original_filename: str) -> Tuple[bool, str]:
         """
-        Run all file safety checks.
+        Run all file safety checks sequentially (short-circuiting on first failure).
         Returns (is_safe, error_message).
         """
-        checks = [
-            self._check_filename(original_filename),
-            self._check_extension(original_filename),
-            self._check_size(file_path),
-            self._check_magic_bytes(file_path, original_filename),
-            self._check_not_executable(file_path),
-            self._check_no_embedded_scripts(file_path),
-            self._check_zip_bomb(file_path),
+        steps = [
+            lambda: self._check_filename(original_filename),
+            lambda: self._check_extension(original_filename),
+            lambda: self._check_exists(file_path),
+            lambda: self._check_size(file_path),
+            lambda: self._check_magic_bytes(file_path, original_filename),
+            lambda: self._check_not_executable(file_path),
+            lambda: self._check_no_embedded_scripts(file_path),
+            lambda: self._check_zip_bomb(file_path),
         ]
-        for is_safe, msg in checks:
+        for check_fn in steps:
+            is_safe, msg = check_fn()
             if not is_safe:
                 logger.warning("File rejected [%s]: %s", original_filename, msg)
                 return False, msg
+        return True, "ok"
+
+    def _check_exists(self, file_path: str) -> Tuple[bool, str]:
+        if not os.path.isfile(file_path):
+            return False, "File not found"
         return True, "ok"
 
     def _check_filename(self, filename: str) -> Tuple[bool, str]:
@@ -126,11 +151,12 @@ class FileSanitizer:
         ext = os.path.splitext(filename)[1].lower()
         if ext in BLOCKED_EXTENSIONS:
             return False, f"Blocked file extension: {ext}"
-        # Double extension check (e.g., image.jpg.exe)
+        # Double extension check (e.g., image.php.jpg) while permitting benign TLD tokens like .com
         parts = filename.lower().split(".")
-        for part_ext in parts[1:]:
-            if f".{part_ext}" in BLOCKED_EXTENSIONS:
-                return False, f"Blocked extension in filename: .{part_ext}"
+        for part_ext in parts[1:-1]:
+            token = f".{part_ext}"
+            if token in BLOCKED_EXTENSIONS and token not in INTERMEDIATE_SAFE_TOKENS:
+                return False, f"Blocked extension in filename: {token}"
         return True, "ok"
 
     def _check_size(self, file_path: str) -> Tuple[bool, str]:
@@ -152,6 +178,17 @@ class FileSanitizer:
         with open(file_path, "rb") as f:
             header = f.read(32)
 
+        if ext in ISO_BMFF_EXTS:
+            # ISO Base Media File Format: 4-byte box size followed by 4-byte box type (e.g., 'ftyp')
+            if len(header) >= 8 and header[4:8] in expected:
+                return True, "ok"
+            return False, f"File content does not match {ext} format (possible disguised file)"
+
+        if ext in RIFF_SUBTYPES:
+            if len(header) >= 12 and header[:4] == b"RIFF" and header[8:12] == RIFF_SUBTYPES[ext]:
+                return True, "ok"
+            return False, f"File content does not match {ext} format (possible disguised file)"
+
         for magic in expected:
             if header[:len(magic)] == magic:
                 return True, "ok"
@@ -170,7 +207,7 @@ class FileSanitizer:
         return True, "ok"
 
     def _check_no_embedded_scripts(self, file_path: str) -> Tuple[bool, str]:
-        """Scan for embedded script/exploit patterns in file content."""
+        """Scan for embedded script/exploit patterns across file content in overlapping chunks."""
         dangerous_patterns = [
             b"<script",
             b"javascript:",
@@ -185,16 +222,31 @@ class FileSanitizer:
             b"cmd.exe",
         ]
         try:
+            chunk_size = 1024 * 1024  # 1 MB
+            max_scan_bytes = 20 * 1024 * 1024  # scan up to 20 MB across the file + tail
+            overlap = 64
+            scanned = 0
+            prev_tail = b""
             with open(file_path, "rb") as f:
-                # Only scan first 1MB and last 1KB for performance
-                head = f.read(1024 * 1024).lower()
-                f.seek(max(0, os.path.getsize(file_path) - 1024))
-                tail = f.read(1024).lower()
-                content = head + tail
+                while scanned < max_scan_bytes:
+                    chunk = f.read(chunk_size)
+                    if not chunk:
+                        break
+                    buf = (prev_tail + chunk).lower()
+                    for pattern in dangerous_patterns:
+                        if pattern in buf:
+                            return False, f"Embedded script/exploit detected: {pattern.decode(errors='ignore')}"
+                    prev_tail = chunk[-overlap:]
+                    scanned += len(chunk)
 
-            for pattern in dangerous_patterns:
-                if pattern.lower() in content:
-                    return False, f"Embedded script/exploit detected: {pattern.decode(errors='ignore')}"
+                # Always scan final 4 KB of very large files as well
+                file_size = os.path.getsize(file_path)
+                if file_size > scanned:
+                    f.seek(max(0, file_size - 4096))
+                    tail = f.read(4096).lower()
+                    for pattern in dangerous_patterns:
+                        if pattern in tail:
+                            return False, f"Embedded script/exploit detected: {pattern.decode(errors='ignore')}"
         except Exception:
             pass
         return True, "ok"
@@ -202,10 +254,20 @@ class FileSanitizer:
     def _check_zip_bomb(self, file_path: str) -> Tuple[bool, str]:
         """Detect potential zip bombs / decompression bombs."""
         size = os.path.getsize(file_path)
-        # Extremely suspicious: file is tiny but claims to be a media file
         ext = os.path.splitext(file_path)[1].lower()
-        if ext in (".mp4", ".avi", ".mov", ".mkv") and size < 100:
+        if ext in (".mp4", ".avi", ".mov", ".mkv", ".webm") and size < 100:
             return False, "Suspiciously small video file (possible bomb)"
+
+        # Header-only image pixel dimension check (50 MP limit) to prevent image decompression bombs
+        if ext in (".jpg", ".jpeg", ".png", ".webp", ".bmp", ".tiff"):
+            try:
+                from PIL import Image
+                with Image.open(file_path) as img:
+                    w, h = img.size
+                    if w * h > 50_000_000:
+                        return False, f"Image dimensions too large ({w}x{h} = {w * h:,} pixels; max 50,000,000)"
+            except Exception:
+                pass  # Corrupt images are handled downstream by detector
         return True, "ok"
 
 
@@ -243,6 +305,11 @@ ALLOWED_VALUES = {
     "media_type": {"image", "video", "audio", "unknown"},
     "corrected_verdict": {"authentic", "deepfake"},
     "original_verdict": {"authentic", "suspicious", "deepfake", "inconclusive", "error"},
+    "manipulation_type": {
+        "face_swap", "face_reenactment", "lip_sync", "full_synthesis",
+        "voice_clone", "text_to_speech", "background_manipulation",
+        "attribute_editing", "unknown",
+    },
 }
 
 
@@ -299,7 +366,9 @@ class InputValidator:
             if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", key):
                 return False, {}, f"Module key contains invalid characters: {key}"
 
-            # Value validation
+            # Value validation (reject booleans which are subclasses of int)
+            if isinstance(value, bool):
+                return False, {}, f"Module score '{key}' must be a number, not boolean"
             try:
                 fval = float(value)
             except (TypeError, ValueError):
@@ -361,12 +430,16 @@ class InputValidator:
                 ok, val, err = InputValidator.sanitize_string(data[field], field)
                 if not ok:
                     return False, {}, err
+                if field == "file_hash" and not val.strip():
+                    return False, {}, "Field 'file_hash' cannot be empty"
                 sanitized[field] = val
 
         # Validate module_scores
         ok, scores, err = InputValidator.validate_module_scores(data["module_scores"])
         if not ok:
             return False, {}, err
+        if not scores:
+            return False, {}, "module_scores cannot be empty"
         sanitized["module_scores"] = scores
 
         # Validate flags
@@ -427,6 +500,11 @@ class RateLimiter:
 
             if bucket["tokens"] >= 1.0:
                 bucket["tokens"] -= 1.0
+                if len(self._buckets) > 1000:
+                    stale = [k for k, v in self._buckets.items()
+                             if now - v["last_refill"] > 3600]
+                    for k in stale:
+                        del self._buckets[k]
                 return True, "ok"
 
         return False, f"Rate limit exceeded for {category}. Try again shortly."
@@ -509,13 +587,13 @@ class FeedbackGuard:
         if not ok:
             return False, msg
 
-        # 2. Score anomaly detection
-        ok, msg = self._check_score_anomaly(module_scores)
+        # 2. Score anomaly detection (per verdict class so authentic & deepfake don't clash)
+        ok, msg = self._check_score_anomaly(module_scores, corrected_verdict)
         if not ok:
             return False, msg
 
         # 3. Record this submission
-        self._record_submission(ip, module_scores)
+        self._record_submission(ip, module_scores, corrected_verdict)
 
         return True, "ok"
 
@@ -535,15 +613,21 @@ class FeedbackGuard:
             self._ip_feedback_log[ip].append(now)
         return True, "ok"
 
-    def _check_score_anomaly(self, scores: Dict[str, float]) -> Tuple[bool, str]:
-        """Reject scores that deviate wildly from historical distribution."""
+    def _check_score_anomaly(self, scores: Dict[str, float],
+                             corrected_verdict: str = "") -> Tuple[bool, str]:
+        """Reject scores that deviate wildly from historical distribution for the same verdict class."""
+        import numpy as np
+        with self._lock:
+            snapshots = {
+                module: list(self._score_history.get(f"{corrected_verdict}:{module}", []))
+                for module in scores
+            }
         for module, score in scores.items():
-            history = self._score_history.get(module, [])
+            history = snapshots.get(module, [])
             if len(history) < 10:
                 continue  # Not enough history to judge
-            import numpy as np
-            mean = np.mean(history)
-            std = np.std(history)
+            mean = float(np.mean(history))
+            std = float(np.std(history))
             if std < 0.01:
                 continue
             z_score = abs(score - mean) / std
@@ -554,13 +638,15 @@ class FeedbackGuard:
                 )
         return True, "ok"
 
-    def _record_submission(self, ip: str, scores: Dict[str, float]):
+    def _record_submission(self, ip: str, scores: Dict[str, float],
+                           corrected_verdict: str = ""):
         with self._lock:
             for module, score in scores.items():
-                self._score_history[module].append(score)
-                # Keep last 500 per module
-                if len(self._score_history[module]) > 500:
-                    self._score_history[module] = self._score_history[module][-500:]
+                key = f"{corrected_verdict}:{module}"
+                self._score_history[key].append(score)
+                # Keep last 500 per (verdict, module)
+                if len(self._score_history[key]) > 500:
+                    self._score_history[key] = self._score_history[key][-500:]
 
 
 # ---------------------------------------------------------------------------

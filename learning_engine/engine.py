@@ -2,6 +2,7 @@
 Learning Engine — Unified orchestrator
 """
 import logging
+import math
 from typing import Dict, List, Tuple
 
 from learning_engine.feedback import FeedbackRecord, FeedbackStore
@@ -54,11 +55,16 @@ class LearningEngine:
         ml_pred = self.classifier.predict(module_scores)
         if ml_pred:
             meta["ml_prediction"] = ml_pred
-            # Weighted blend: 70% rule-based, 30% ML
-            ml_weight = min(0.3, ml_pred["ml_confidence"] * 0.4)
+            # Weighted blend: 70% rule-based, 30% ML (guarded against NaN/non-positive confidence)
+            ml_conf = float(ml_pred.get("ml_confidence", 0.0))
+            if math.isnan(ml_conf) or ml_conf <= 0.0:
+                ml_weight = 0.0
+            else:
+                ml_weight = min(0.3, ml_conf * 0.4)
             ml_prob = ml_pred["ml_probability"]
-            for k in adjusted:
-                adjusted[k] = adjusted[k] * (1 - ml_weight) + ml_prob * ml_weight
+            if ml_weight > 0.0:
+                for k in adjusted:
+                    adjusted[k] = adjusted[k] * (1 - ml_weight) + ml_prob * ml_weight
 
         meta["adjustments_applied"] = len(self.thresholds.adjustments) > 0
         meta["total_feedback"] = self.feedback_store.count

@@ -164,7 +164,7 @@ class FacialAnalyzer:
         return mean_score, flags
 
     def _check_blending(self, img, x, y, w, h):
-        ew = self.p.blending_edge_width_px
+        ew = max(1, int(self.p.blending_edge_width_px))
         mask = np.zeros(img.shape[:2], dtype=np.uint8)
         cv2.rectangle(mask, (x, y), (x+w, y+h), 255, ew)
         gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
@@ -178,13 +178,13 @@ class FacialAnalyzer:
         if (w * h) / float(H * W) > 0.40:
             return 0.0
 
-        bg = full.copy()
-        bg[y:y+h, x:x+w] = 0
-        bg_gray = cv2.cvtColor(bg, cv2.COLOR_BGR2GRAY)
-        mask = bg_gray > 0
-        if not mask.any():
+        bg_mask = np.ones((H, W), dtype=bool)
+        bg_mask[y:y+h, x:x+w] = False
+        if not bg_mask.any():
             return 0.0
-        bg_pixels = bg_gray[mask]
+
+        full_gray = cv2.cvtColor(full, cv2.COLOR_BGR2GRAY)
+        bg_pixels = full_gray[bg_mask]
         high_lum_ratio = np.count_nonzero(bg_pixels > 225) / float(len(bg_pixels))
         is_studio = (high_lum_ratio > 0.35) or (float(np.std(bg_pixels)) < 25.0)
 
@@ -215,21 +215,28 @@ class FacialAnalyzer:
             return 0.0
 
         face_lab = cv2.cvtColor(roi, cv2.COLOR_BGR2Lab).astype(float)
-        bg_lab = cv2.cvtColor(bg, cv2.COLOR_BGR2Lab).astype(float)
-        bg_mask = bg_lab.sum(axis=2) > 0
-        if not bg_mask.any():
-            return 0.0
+        full_lab = cv2.cvtColor(full, cv2.COLOR_BGR2Lab).astype(float)
         face_mean = face_lab.mean(axis=(0, 1))
-        bg_mean = bg_lab[bg_mask].mean(axis=0)
+        bg_mean = full_lab[bg_mask].mean(axis=0)
         return float(np.linalg.norm(face_mean - bg_mean))
 
     def _noise_ratio(self, roi, full, x, y, w, h):
+        H, W = full.shape[:2]
         face_gray = cv2.cvtColor(roi, cv2.COLOR_BGR2GRAY).astype(float)
         face_noise = cv2.Laplacian(face_gray, cv2.CV_64F).var()
-        bg = full.copy()
-        bg[y:y+h, x:x+w] = 0
-        bg_gray = cv2.cvtColor(bg, cv2.COLOR_BGR2GRAY).astype(float)
-        bg_noise = cv2.Laplacian(bg_gray, cv2.CV_64F).var()
+
+        full_gray = cv2.cvtColor(full, cv2.COLOR_BGR2GRAY).astype(float)
+        full_lap = cv2.Laplacian(full_gray, cv2.CV_64F)
+        bg_mask = np.ones((H, W), dtype=bool)
+        # Exclude face region plus a 2px margin so Laplacian doesn't straddle the face border
+        y1 = max(0, y - 2)
+        y2 = min(H, y + h + 2)
+        x1 = max(0, x - 2)
+        x2 = min(W, x + w + 2)
+        bg_mask[y1:y2, x1:x2] = False
+        if not bg_mask.any():
+            return 1.0
+        bg_noise = float(full_lap[bg_mask].var())
 
         if bg_noise < 15.0 or face_noise < 15.0:
             return 1.0
@@ -238,9 +245,13 @@ class FacialAnalyzer:
 
     def _symmetry_score(self, roi):
         h, w = roi.shape[:2]
+        if w < 2 or h < 1:
+            return 0.0
         left = roi[:, :w//2]
         right = cv2.flip(roi[:, w//2:], 1)
         min_w = min(left.shape[1], right.shape[1])
+        if min_w == 0:
+            return 0.0
         left, right = left[:, :min_w], right[:, :min_w]
         diff = np.abs(left.astype(float) - right.astype(float))
         return float(diff.mean() / 255.0)
